@@ -1,2 +1,8 @@
 # Project exclude paths
 /venv/
+docker-compose.yml
+docker_faq.md
+.idea
+app/core/errors.log
+app/core/info.log
+app/core/settings.py
