@@ -8,11 +8,11 @@ import requests
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from .core.config import load_config
-from .core.logging import setup_logging
-from .db.mongo_db import close_mongo_connection, connect_to_mongo
-from .teleBot import bot
-from .models.models import ActionsOnExchange
+from app.core.config import load_config
+from app.core.logging import setup_logging
+from app.db.mongo_db import close_mongo_connection, connect_to_mongo
+from app.teleBot import bot
+from app.models.models import ActionsOnExchange
 
 # сетап конфиг и логгер
 setup_logging()
