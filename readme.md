@@ -1,6 +1,6 @@
 1. Build image
     
-    `docker build -t notification .`
+    `docker build -t MyApp .`
 
 2. Login to DockerHub
     
