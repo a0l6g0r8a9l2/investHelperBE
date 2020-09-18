@@ -1,27 +1,35 @@
-1. Собрать образ
+1. Build image
     
     `docker build -t notification .`
 
-2. Запустить образ
-
-    `docker run -d --name notification -p 80:80 -e MODULE_NAME="app.main"  notification`
+2. Login to DockerHub
     
-3. Проверить запущен ли контейнер и узнать CONTAINERID: 
+    `docker login -u login -p password`
 
-    `docker -ps`
+3. Login to Heroku (Heroku account and CLI required)
+
+    `heroku login`
     
-4. Проверить логи:
+4. Login to Heroku container
 
-    `docker logs -f CONTAINERID`
+    `heroku container:login`
     
-5. Остановить контейнер: 
+5. Create Heroku App
+
+    `heroku create --app MyApp`
     
-    `docker stop CONTAINERID`
+6. Push image to Heroku
 
-6. Удалить остановленные контейнеры: 
+    `heroku container:push web --app MyApp`
+  
+7. Release Heroku App
 
-    `docker rm -v $(docker ps -aq -f status=exited)`
-    
-7. Удаить все images
+    `heroku container:release --app MyApp`
 
-`docker rmi -f $(docker images -a -q)`
+8. Open App 
+
+    `heroku open --app MyApp`
+
+9. Check App logs
+
+    `heroku logs --app MyApp`
