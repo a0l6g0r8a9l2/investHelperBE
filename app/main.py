@@ -100,3 +100,7 @@ async def delete_notification_stock_price_by_id(id: str = Path(...,
     db = db_client[default_db]
     collection: AsyncIOMotorCollection = db.notification
     await collection.find_one_and_delete({'_id': ObjectId(id)})
+
+
+if __name__ == '__main__':
+    uvicorn.run(app)
