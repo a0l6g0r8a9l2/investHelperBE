@@ -138,7 +138,7 @@ async def check_price(ticker: str, exchange: Optional[Exchange] = None) -> Stock
 
 
 async def price_checker(notification_id: str,
-                        delay: Optional[int] = 10,
+                        delay: Optional[int] = 60,
                         end_notification: Optional[datetime] = (datetime.now() + timedelta(days=14))):
     db = await connect_to_mongo()  # конектимся
     collection: AsyncIOMotorClient = db[default_db].notification  # получаем коллекцию
@@ -169,10 +169,11 @@ async def price_checker(notification_id: str,
     await close_mongo_connection()
 
 
-async def task_manager(task: asyncio.coroutines):
+async def task_manager(coro: asyncio.coroutines, name: Optional[str] = None):
     loop = asyncio.get_event_loop()
     try:
-        task_obj = loop.create_task(task)
-        logger.info(f'Running {task_obj}')
+        task_obj = loop.create_task(coro)
+        task_obj.set_name(name)
+        logger.info(f'Running {task_obj.get_name()}')
     except (NotImplementedError, AttributeError) as err:
         logger.error(f'ERROR {err.args}')

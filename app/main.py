@@ -1,6 +1,6 @@
 #!/usr/bin/venv python
 # -*- coding: utf-8 -*
-
+import asyncio
 import logging
 
 import uvicorn
@@ -54,7 +54,8 @@ async def add_notification_stock_price(notification: StockPriceNotificationCreat
     notification.dict(exclude_unset=True)  # исключим из вх. данных не переданные опциональные параметры
     encoded_notification = jsonable_encoder(notification)  # на входе pydantic модель, которую необходимо
     notification_id = await collection.insert_one(encoded_notification)  # TODO: Вызовы в контролеры
-    await task_manager(price_checker(str(notification_id.inserted_id), end_notification=notification.endNotification))
+    await task_manager(price_checker(str(notification_id.inserted_id), end_notification=notification.endNotification),
+                       name=str(notification_id.inserted_id))
     response = {"id": str(notification_id.inserted_id), **notification.dict()}
     return response
 
@@ -74,13 +75,17 @@ async def get_notification_stock_price_by_id(id: str = Path(...,
     """
     Контролер для чтения уведомлений о изменении цены акции
     """
-    db = db_client[default_db]
-    collection: AsyncIOMotorCollection = db.notification
-    notification: dict = await collection.find_one({'_id': ObjectId(id)})  # TODO: Вызовы в контролеры
-    _id = str(notification.pop('_id'))
-    notification['id'] = _id
-    response = StockPriceNotificationRead(**notification)
-    return response
+    try:
+        db = db_client[default_db]
+        collection: AsyncIOMotorCollection = db.notification
+        notification: dict = await collection.find_one({'_id': ObjectId(id)})  # TODO: Вызовы в контролеры
+        _id = str(notification.pop('_id'))
+        notification['id'] = _id
+        response = StockPriceNotificationRead(**notification)
+        return response
+    except (HTTPException, KeyError, ValueError, AttributeError) as err:
+        logger.error(f'ERROR {err.args}')
+        raise HTTPException(status_code=404, detail="Notification not found")
 
 
 @app.delete("/stocks/notification/{id}",
@@ -95,11 +100,15 @@ async def delete_notification_stock_price_by_id(id: str = Path(...,
                                                                ),
                                                 db_client: AsyncIOMotorClient = Depends(get_nosql_db)):
     """
-    Контролер для чтения уведомлений о изменении цены акции
+    Контролер для удаления уведомлений о изменении цены акции
     """
     db = db_client[default_db]
     collection: AsyncIOMotorCollection = db.notification
     await collection.find_one_and_delete({'_id': ObjectId(id)})
+    for t in asyncio.all_tasks():
+        if t.get_name() == id:
+            t.cancel()
+    logger.info(f'Task {id} is canceled!')
 
 
 if __name__ == '__main__':
