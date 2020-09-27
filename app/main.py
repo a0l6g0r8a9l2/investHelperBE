@@ -102,13 +102,17 @@ async def delete_notification_stock_price_by_id(id: str = Path(...,
     """
     Контролер для удаления уведомлений о изменении цены акции
     """
-    db = db_client[default_db]
-    collection: AsyncIOMotorCollection = db.notification
-    await collection.find_one_and_delete({'_id': ObjectId(id)})
-    for t in asyncio.all_tasks():
-        if t.get_name() == id:
-            t.cancel()
-    logger.info(f'Task {id} is canceled!')
+    try:
+        db = db_client[default_db]
+        collection: AsyncIOMotorCollection = db.notification
+        await collection.find_one_and_delete({'_id': ObjectId(id)})
+        for t in asyncio.all_tasks():
+            if t.get_name() == id:
+                t.cancel()
+        logger.info(f'Task {id} is canceled!')
+    except (HTTPException, KeyError, ValueError, AttributeError) as err:
+        logger.error(f'ERROR {err.args}')
+        raise HTTPException(status_code=404, detail="Notification not found")
 
 
 if __name__ == '__main__':
