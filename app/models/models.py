@@ -30,6 +30,11 @@ class StockPriceNotificationCreate(BaseModel):
     endNotification: Optional[datetime] = Field(datetime.now() + timedelta(days=14),
                                                 description="The date must be greater than now",
                                                 example=datetime.now() + timedelta(minutes=5))
+    delay: int = Field(60,
+                       gt=9,
+                       le=86400,
+                       description="Seconds before next check price",
+                       example=60)
 
 
 class StockPriceNotificationDelete(BaseModel):

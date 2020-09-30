@@ -49,12 +49,15 @@ async def add_notification_stock_price(notification: StockPriceNotificationCreat
     """
     Контролер для создания уведомлений о изменении цены акции
     """
+    # TODO: add DELAY
     db = db_client[default_db]
     collection: AsyncIOMotorCollection = db.notification
     notification.dict(exclude_unset=True)  # исключим из вх. данных не переданные опциональные параметры
-    encoded_notification = jsonable_encoder(notification)  # на входе pydantic модель, которую необходимо
-    notification_id = await collection.insert_one(encoded_notification)  # TODO: Вызовы в контролеры
-    await task_manager(price_checker(str(notification_id.inserted_id), end_notification=notification.endNotification),
+    encoded_notification = jsonable_encoder(notification)  # на входе pydantic модель, которую необходимо конвертировать
+    notification_id = await collection.insert_one(encoded_notification)
+    await task_manager(price_checker(str(notification_id.inserted_id),
+                                     end_notification=notification.endNotification,
+                                     delay=notification.delay),
                        name=str(notification_id.inserted_id))
     response = {"id": str(notification_id.inserted_id), **notification.dict()}
     return response
