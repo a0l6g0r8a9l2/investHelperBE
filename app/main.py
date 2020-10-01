@@ -119,4 +119,4 @@ async def delete_notification_stock_price_by_id(id: str = Path(...,
 
 
 if __name__ == '__main__':
-    uvicorn.run(app)
+    uvicorn.run(app, log_config=setup_logging())

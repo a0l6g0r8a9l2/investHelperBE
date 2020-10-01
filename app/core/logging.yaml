@@ -3,6 +3,12 @@ disable_existing_loggers: False
 formatters:
   simple:
     format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  uvicorn_colored:
+    "()": uvicorn.logging.DefaultFormatter
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  uvicorn_access:
+    "()": uvicorn.logging.AccessFormatter
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 handlers:
   console:
@@ -29,10 +35,30 @@ handlers:
     backupCount: 20
     encoding: utf8
 
+  uvicorn_colored:
+    formatter: uvicorn_colored
+    class: logging.StreamHandler
+    stream: ext://sys.stdout
+
+  uvicorn_access:
+    formatter: uvicorn_access
+    class: logging.StreamHandler
+    stream: ext://sys.stdout
+
 loggers:
   my_module:
     level: ERROR
     handlers: [console]
+    propagate: no
+  uvicorn.access:
+    level: INFO
+    handlers:
+      - uvicorn_access
+    propagate: no
+  uvicorn.error:
+    level: INFO
+    handlers:
+      - uvicorn_colored
     propagate: no
 
 root:

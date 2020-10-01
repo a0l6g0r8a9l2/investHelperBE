@@ -20,5 +20,6 @@ def setup_logging(
         with open(path, 'rt') as f:
             config = yaml.safe_load(f.read())
         logging.config.dictConfig(config)
+        return config
     else:
         logging.basicConfig(level=default_level)
