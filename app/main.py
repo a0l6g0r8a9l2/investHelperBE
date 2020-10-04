@@ -6,6 +6,7 @@ import logging
 import uvicorn
 from bson import ObjectId
 from fastapi import FastAPI, status, HTTPException, Depends, Path
+from fastapi.responses import RedirectResponse
 from fastapi.encoders import jsonable_encoder
 from motor.motor_asyncio import AsyncIOMotorCollection
 
@@ -39,6 +40,11 @@ async def shutdown_event():
     await close_mongo_connection()
 
 
+@app.get("/", include_in_schema=False)
+def docs_redirect():
+    return RedirectResponse(f"{app.root_path}/docs")
+
+
 @app.post("/stocks/notification/",
           response_model_exclude_none=True,
           status_code=status.HTTP_201_CREATED,
@@ -49,11 +55,12 @@ async def add_notification_stock_price(notification: StockPriceNotificationCreat
     """
     Контролер для создания уведомлений о изменении цены акции
     """
-    # TODO: add DELAY
     db = db_client[default_db]
     collection: AsyncIOMotorCollection = db.notification
-    notification.dict(exclude_unset=True)  # исключим из вх. данных не переданные опциональные параметры
-    encoded_notification = jsonable_encoder(notification)  # на входе pydantic модель, которую необходимо конвертировать
+    # исключим из вх. данных не переданные опциональные параметры
+    notification.dict(exclude_unset=True)
+    # на входе pydantic модель, которую необходимо конвертировать
+    encoded_notification = jsonable_encoder(notification)
     notification_id = await collection.insert_one(encoded_notification)
     await task_manager(price_checker(str(notification_id.inserted_id),
                                      end_notification=notification.endNotification,
@@ -81,7 +88,7 @@ async def get_notification_stock_price_by_id(id: str = Path(...,
     try:
         db = db_client[default_db]
         collection: AsyncIOMotorCollection = db.notification
-        notification: dict = await collection.find_one({'_id': ObjectId(id)})  # TODO: Вызовы в контролеры
+        notification: dict = await collection.find_one({'_id': ObjectId(id)})
         _id = str(notification.pop('_id'))
         notification['id'] = _id
         response = StockPriceNotificationRead(**notification)
@@ -109,6 +116,7 @@ async def delete_notification_stock_price_by_id(id: str = Path(...,
         db = db_client[default_db]
         collection: AsyncIOMotorCollection = db.notification
         await collection.find_one_and_delete({'_id': ObjectId(id)})
+        # ищем таску по имени и отменяем
         for t in asyncio.all_tasks():
             if t.get_name() == id:
                 t.cancel()
