@@ -6,6 +6,7 @@
     "Stocks",
     "Python"
   ],
+  "stack": "container",
   "repository": "https://github.com/a0l6g0r8a9l2/investHelperBE",
   "success_url": "/docs",
   "environments": {
