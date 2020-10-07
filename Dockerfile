@@ -6,5 +6,5 @@ RUN pip install --upgrade pip
 COPY ./app /app/app
 WORKDIR /app/app
 RUN pip install -r requirements.txt
-RUN startTests.sh
+# RUN startTests.sh
 # CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
