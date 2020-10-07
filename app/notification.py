@@ -164,7 +164,6 @@ async def price_checker(notification_id: str,
     await task_manager(bot.send_message_to_telegram(msg=f'Notification time is over for id: {notification_id}!\n'
                                                         f'Ticker: {ticker}\n'
                                                         f'Target price: {target_price}'))
-    # RuntimeError: Timeout context manager should be used inside a task
     await collection.find_one_and_delete({'_id': ObjectId(notification_id)})
     await close_mongo_connection()
 

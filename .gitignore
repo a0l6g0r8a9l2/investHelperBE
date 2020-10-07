@@ -6,3 +6,4 @@ docker_faq.md
 app/core/errors.log
 app/core/info.log
 app/core/settings.py
+app/.pytest_cache
