@@ -18,7 +18,7 @@ from app.models.models import ActionsOnExchange
 setup_logging()
 logger = logging.getLogger(__name__)
 
-default_db = load_config().get("mongo_name")
+default_db = load_config().get("MONGO_NAME")
 
 
 @unique

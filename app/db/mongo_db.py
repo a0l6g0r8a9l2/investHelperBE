@@ -17,7 +17,7 @@ async def get_nosql_db() -> AsyncIOMotorClient:
 
 async def connect_to_mongo():
     db.client = AsyncIOMotorClient(
-        f'mongodb+srv://{load_config().get("mongo_username")}:{load_config().get("mongo_password")}@invest-mvp-gb0oh'
+        f'mongodb+srv://{load_config().get("MONGO_USERNAME")}:{load_config().get("MONGO_PASSWORD")}@invest-mvp-gb0oh'
         f'.mongodb.net/invest?retryWrites=true&w=majority',
         maxPoolSize=load_config().get("MAX_CONNECTIONS_COUNT"),
         minPoolSize=load_config().get("MIN_CONNECTIONS_COUNT"),

@@ -1,2 +1,2 @@
 # Run test
-pytest  --disable-warnings
+pytest  --disable-warnings -v

@@ -8,18 +8,18 @@ logger = getLogger(__name__)
 def load_config():
     try:
         info = {
-            "token": os.environ.get('API_TOKEN'),
-            "conf_name": os.environ.get('BOT_ENV'),
+            "TOKEN": os.environ.get('API_TOKEN'),
+            "CONF_NAME": os.environ.get('BOT_ENV'),
             "proxies": None,
-            "mongo_name": os.environ.get('DB_NAME'),
-            "mongo_username": os.environ.get('DB_USER'),
-            "mongo_password": os.environ.get('DB_PASSWORD'),
-            "mongo_collection": os.environ.get('DB_COLLECTION'),
+            "MONGO_NAME": os.environ.get('DB_NAME'),
+            "MONGO_USERNAME": os.environ.get('DB_USER'),
+            "MONGO_PASSWORD": os.environ.get('DB_PASSWORD'),
+            "MONGO_COLLECTION": os.environ.get('DB_COLLECTION'),
             "MAX_CONNECTIONS_COUNT": os.environ.get('MAX_CONNECTIONS_COUNT'),
             "MIN_CONNECTIONS_COUNT": os.environ.get('MIN_CONNECTIONS_COUNT')
         }
-        logger.debug(f'Loaded config {info["conf_name"]} - OK')
-        if info.get("conf_name") != 'prod':
+        logger.debug(f'Loaded config {info["CONF_NAME"]} - OK')
+        if info.get("CONF_NAME") != 'PROD':
             from app.core.settings import info
             return info
         else:

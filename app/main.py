@@ -24,7 +24,7 @@ app = FastAPI(title="InvestHelper",
               description="This is API for InvestHelperBot",
               version="0.1.0")
 
-default_db = load_config().get("mongo_name")
+default_db = load_config().get("MONGO_NAME")
 
 
 @app.on_event("startup")
