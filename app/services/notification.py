@@ -306,22 +306,3 @@ async def fetch_url(url: str):
     except httpx.HTTPError as exc:
         logging.error(f'HTTP Exception - {exc}')
         return None
-
-
-# end_notify1 = datetime.now() + timedelta(seconds=-5)
-# _notification = Notification(stock=Stock(ticker='MOEX'), endNotification=end_notify1,
-#                             action=ActionsOnExchange.buy.value, targetPrice=121.1)
-# notify1 = NotificationService(notification=_notification)
-# print(notify1.notification)
-
-# asyncio.get_event_loop().run_until_complete(notify1.checking_exchange())
-# asyncio.get_event_loop().run_until_complete(notify1.price_scheduling())
-# получить dict repr инстанса для влзвращения в api
-# print(notify1.get_instance_by_notification_id('test_notification_id').notification.dict_repr())
-# получить инстанс для чтения/отмены
-# notify2 = NotificationService.get_instance_by_notification_id('test_notification_id')
-# print(notify2.notification)
-# asyncio.get_event_loop().run_until_complete(notify2.cancel())
-# asyncio.get_event_loop().run_until_complete(asyncio.sleep(10))
-# asyncio.get_event_loop().run_until_complete(notify1.cancel())
-# asyncio.get_event_loop().run_forever()
