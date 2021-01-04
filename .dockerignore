@@ -2,4 +2,3 @@ venv/
 __pycache__/
 app/wtest.py
 app/.pytest_cache
-app/core/settings.py

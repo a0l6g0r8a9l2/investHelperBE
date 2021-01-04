@@ -16,7 +16,9 @@ def load_config():
             "MONGO_PASSWORD": os.environ.get('DB_PASSWORD'),
             "MONGO_COLLECTION": os.environ.get('DB_COLLECTION'),
             "MAX_CONNECTIONS_COUNT": os.environ.get('MAX_CONNECTIONS_COUNT'),
-            "MIN_CONNECTIONS_COUNT": os.environ.get('MIN_CONNECTIONS_COUNT')
+            "MIN_CONNECTIONS_COUNT": os.environ.get('MIN_CONNECTIONS_COUNT'),
+            "CHAT_ID": os.environ.get('CHAT_ID'),
+            "TIME_OUT": os.environ.get('TIME_OUT')
         }
         logger.debug(f'Loaded config {info["CONF_NAME"]} - OK')
         if info.get("CONF_NAME") != 'PROD':

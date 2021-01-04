@@ -1,20 +1,20 @@
 #!/usr/bin/venv python
 # -*- coding: utf-8 -*
-import asyncio
 import logging
+import sys
 
+import httpx
 import uvicorn
-from bson import ObjectId
-from fastapi import FastAPI, status, HTTPException, Depends, Path
+from fastapi import FastAPI, Path
 from fastapi.responses import RedirectResponse
-from fastapi.encoders import jsonable_encoder
-from motor.motor_asyncio import AsyncIOMotorCollection
+from starlette.responses import JSONResponse
+from starlette.status import HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR, \
+    HTTP_404_NOT_FOUND, HTTP_200_OK, HTTP_201_CREATED, HTTP_503_SERVICE_UNAVAILABLE
+from transitions import MachineError
 
-from app.core.config import load_config
 from app.core.logging import setup_logging
-from app.db.mongo_db import close_mongo_connection, connect_to_mongo, get_nosql_db, AsyncIOMotorClient
-from app.models.models import StockPriceNotificationCreate, StockPriceNotificationRead
-from app.notification import task_manager, price_checker
+from app.models.models import StockPriceNotificationRead, StockPriceNotificationCreate, responses, Stock
+from app.services.notification import Notification, NotificationService
 
 # сетап конфиг и логгер
 setup_logging()
@@ -22,22 +22,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="InvestHelper",
               description="This is API for InvestHelperBot",
-              version="0.1.0")
-
-default_db = load_config().get("MONGO_NAME")
-
-
-@app.on_event("startup")
-async def startup_event():
-    try:
-        await connect_to_mongo()
-    except HTTPException as e:
-        logging.info(e.headers)
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await close_mongo_connection()
+              version="0.1.1")
 
 
 @app.get("/", include_in_schema=False)
@@ -47,83 +32,113 @@ def docs_redirect():
 
 @app.post("/stocks/notification/",
           response_model_exclude_none=True,
-          status_code=status.HTTP_201_CREATED,
+          status_code=HTTP_201_CREATED,
+          responses={**responses},
           response_model=StockPriceNotificationRead,
           tags=["stocks"])
-async def add_notification_stock_price(notification: StockPriceNotificationCreate,
-                                       db_client: AsyncIOMotorClient = Depends(get_nosql_db)):
+async def add_notification_stock_price(notification_request: StockPriceNotificationCreate):
     """
     Контролер для создания уведомлений о изменении цены акции
     """
-    db = db_client[default_db]
-    collection: AsyncIOMotorCollection = db.notification
-    # исключим из вх. данных не переданные опциональные параметры
-    notification.dict(exclude_unset=True)
-    # на входе pydantic модель, которую необходимо конвертировать
-    encoded_notification = jsonable_encoder(notification)
-    notification_id = await collection.insert_one(encoded_notification)
-    await task_manager(price_checker(str(notification_id.inserted_id),
-                                     end_notification=notification.endNotification,
-                                     delay=notification.delay),
-                       name=str(notification_id.inserted_id))
-    response = {"id": str(notification_id.inserted_id), **notification.dict()}
-    return response
+    try:
+        notification_request.dict(exclude_unset=True)
+        logging.debug(notification_request)
+        stock = Stock(ticker=notification_request.ticker)
+        notification_model = Notification(stock=stock,
+                                          targetPrice=notification_request.targetPrice,
+                                          action=notification_request.action,
+                                          event=notification_request.event,
+                                          delay=notification_request.delay,
+                                          endNotification=notification_request.endNotification,
+                                          chatId=notification_request.chatId)
+        service = NotificationService(notification_model)
+        await service.checking_exchange()
+        await service.price_scheduling()
+        response = StockPriceNotificationRead(**service.notification.dict_repr())
+        return response
+    except (KeyError, ValueError, AttributeError, MachineError) as v_err:
+        logging.error(v_err.args)
+        return JSONResponse(status_code=HTTP_400_BAD_REQUEST, content={"message": f"Error with value {v_err}"})
+    except (TimeoutError, httpx.HTTPError) as t_err:
+        tb = sys.exc_info()[2]
+        logging.error(t_err.args, t_err.with_traceback(tb))
+        return JSONResponse(status_code=HTTP_503_SERVICE_UNAVAILABLE,
+                            content={"message": "Connection refused"},
+                            headers={"Retry-After": 30})
+    except Exception as e_err:
+        tb = sys.exc_info()[2]
+        logging.error(e_err.args, e_err.with_traceback(tb))
+        return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+                            content={"message": "Internal Server Error"})
 
 
 @app.get("/stocks/notification/{id}",
          response_model_exclude_none=True,
-         status_code=status.HTTP_200_OK,
+         status_code=HTTP_200_OK,
          response_model=StockPriceNotificationRead,
+         responses={**responses},
          tags=["stocks"])
 async def get_notification_stock_price_by_id(id: str = Path(...,
                                                             description="notification id",
                                                             min_length=1,
-                                                            max_length=100,
+                                                            max_length=50,
                                                             example="5f46c2950e4f4ea916ec05ab"
-                                                            ),
-                                             db_client: AsyncIOMotorClient = Depends(get_nosql_db)):
+                                                            )):
     """
     Контролер для чтения уведомлений о изменении цены акции
     """
     try:
-        db = db_client[default_db]
-        collection: AsyncIOMotorCollection = db.notification
-        notification: dict = await collection.find_one({'_id': ObjectId(id)})
-        _id = str(notification.pop('_id'))
-        notification['id'] = _id
+        notification: dict = NotificationService.get_instance_by_notification_id(id).notification.dict_repr()
         response = StockPriceNotificationRead(**notification)
         return response
-    except (HTTPException, KeyError, ValueError, AttributeError) as err:
-        logger.error(f'ERROR {err.args}')
-        raise HTTPException(status_code=404, detail="Notification not found")
+    except (KeyError, ValueError, AttributeError, MachineError) as v_err:
+        logging.error(v_err.args)
+        return JSONResponse(status_code=HTTP_400_BAD_REQUEST, content={"message": f"Item '{v_err}' not found"})
+    except (TimeoutError, httpx.HTTPError) as t_err:
+        tb = sys.exc_info()[2]
+        logging.error(t_err.args, t_err.with_traceback(tb))
+        return JSONResponse(status_code=HTTP_503_SERVICE_UNAVAILABLE,
+                            content={"message": "Connection refused"},
+                            headers={"Retry-After": 30})
+    except Exception as e_err:
+        tb = sys.exc_info()[2]
+        logging.error(e_err.args, e_err.with_traceback(tb))
+        return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+                            content={"message": "Internal Server Error"})
 
 
 @app.delete("/stocks/notification/{id}",
             response_model_exclude_none=True,
-            status_code=status.HTTP_204_NO_CONTENT,
+            status_code=HTTP_204_NO_CONTENT,
+            responses={**responses},
             tags=["stocks"])
 async def delete_notification_stock_price_by_id(id: str = Path(...,
                                                                description="notification id",
                                                                min_length=1,
-                                                               max_length=100,
+                                                               max_length=50,
                                                                example="5f46c2950e4f4ea916ec05ab"
-                                                               ),
-                                                db_client: AsyncIOMotorClient = Depends(get_nosql_db)):
+                                                               )):
     """
     Контролер для удаления уведомлений о изменении цены акции
     """
     try:
-        db = db_client[default_db]
-        collection: AsyncIOMotorCollection = db.notification
-        await collection.find_one_and_delete({'_id': ObjectId(id)})
-        # ищем таску по имени и отменяем
-        for t in asyncio.all_tasks():
-            if t.get_name() == id:
-                t.cancel()
-        logger.info(f'Task {id} is canceled!')
-    except (HTTPException, KeyError, ValueError, AttributeError) as err:
-        logger.error(f'ERROR {err.args}')
-        raise HTTPException(status_code=404, detail="Notification not found")
+        notification = NotificationService.get_instance_by_notification_id(id)
+        await notification.cancel()
+        return JSONResponse(status_code=HTTP_204_NO_CONTENT)
+    except (KeyError, ValueError, AttributeError, MachineError) as v_err:
+        logging.error(v_err.args)
+        return JSONResponse(status_code=HTTP_404_NOT_FOUND, content={"message": "Item not found"})
+    except (TimeoutError, httpx.HTTPError) as t_err:
+        tb = sys.exc_info()[2]
+        logging.error(t_err.args, t_err.with_traceback(tb))
+        return JSONResponse(status_code=HTTP_503_SERVICE_UNAVAILABLE,
+                            content={"message": "Connection refused"},
+                            headers={"Retry-After": 30})
+    except Exception as e_err:
+        tb = sys.exc_info()[2]
+        logging.error(e_err.args, e_err.with_traceback(tb))
+        return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+                            content={"message": "Internal Server Error"})
 
 
 if __name__ == '__main__':
