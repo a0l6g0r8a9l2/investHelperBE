@@ -4,8 +4,12 @@ from typing import List
 import motor.motor_asyncio
 from pymongo.errors import PyMongoError
 
-logging.basicConfig()
-logging.getLogger(__name__).setLevel(logging.DEBUG)
+from app.core import config_data
+from app.core.logging import setup_logging
+
+# сетап конфиг и логгер
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 class MongodbService:
@@ -14,7 +18,7 @@ class MongodbService:
     """
 
     def __init__(self, host: str = 'localhost', port: int = 27017,
-                 db: str = 'test_database', collection: str = 'test_collection'):
+                 db: str = config_data.get("MONGO_NAME"), collection: str = config_data.get("MONGO_COLLECTION")):
         self._client = motor.motor_asyncio.AsyncIOMotorClient(host, port)
         self._db = self._client[db]
         self._collection = self._db[collection]
