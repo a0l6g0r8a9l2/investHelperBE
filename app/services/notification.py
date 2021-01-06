@@ -205,6 +205,7 @@ class NotificationService:
             check_price = await self.done_check()
             if check_price:
                 await self.work_is_done()
+            asyncio.create_task(self.send_notification())
         except CancelledError:
             done, pending = asyncio.wait(*asyncio.tasks.all_tasks())
             await asyncio.gather(pending)
@@ -274,15 +275,20 @@ class NotificationService:
             if self.state == 'done':
                 if self.notification.action:
                     msg2 = f'You can {self.notification.action}!'
-                else:
-                    msg2 = ''
-                msg = f'Target {self.notification.targetPrice} has reached! ' \
-                      f'Current price is {self.notification.stock.price}. ' + msg2
+                if self.notification.endNotification:
+                    msg3 = f'Event: {self.notification.event}.\n'
+                msg = f'Target {self.notification.targetPrice} has reached!\n{str(msg3)}' \
+                      f'Current price is {self.notification.stock.price}.\n{str(msg2)}'
             elif self.state == 'expired':
-                msg = f'Notification life time is over! Target {self.notification.targetPrice}. ' \
-                      f'Current price is {self.notification.stock.price}.'
+                msg = f'Notification life time is over!\n' \
+                      f'Target {self.notification.targetPrice}.\n' \
+                      f'Current price is {self.notification.stock.price}'
             elif self.state == 'canceled':
                 msg = f'Notification {self.notification.id} is canceled!'
+            elif self.state == 'price_scheduling':
+                msg = f'Notification {self.notification.id} created!\n' \
+                      f'Target price: {self.notification.targetPrice}.\n' \
+                      f'Current price is {self.notification.stock.price}'
             if msg:
                 bot = Bot(token=config_data.get("TOKEN"))
                 await bot.send_message(chat_id=self.notification.chatId, text=msg)

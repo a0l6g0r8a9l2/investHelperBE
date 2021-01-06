@@ -17,6 +17,8 @@ json = {
     "chatId": "411442889"
 }
 
+notification_id = ''
+
 
 @pytest.mark.asyncio
 async def test_root():
@@ -30,13 +32,13 @@ async def test_create_notification():
     async with httpx.AsyncClient() as client:
         response = await client.post(f'{root_path}/stocks/notification/', json=json)
         assert response.status_code == 201
-        return response.json().get('id')
+        global notification_id
+        notification_id = response.json().get('id')
 
 
 @pytest.mark.asyncio
 async def test_read_notification():
     async with httpx.AsyncClient() as client:
-        notification_id = await test_create_notification()
         response = await client.get(f'{root_path}/stocks/notification/{notification_id}')
         assert response.status_code == 200
 
@@ -44,6 +46,5 @@ async def test_read_notification():
 @pytest.mark.asyncio
 async def test_delete_notification():
     async with httpx.AsyncClient() as client:
-        notification_id = await test_create_notification()
         response = await client.delete(f'{root_path}/stocks/notification/{notification_id}')
         assert response.status_code == 204
