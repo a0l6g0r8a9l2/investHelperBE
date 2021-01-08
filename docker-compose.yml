@@ -1,0 +1,31 @@
+version: "3.7"
+
+volumes:
+  mongodb_volume:
+
+services:
+
+  notification:
+    build: ./app
+    container_name: notification-service
+    restart: always
+    ports:
+      - "8000:80"
+    environment:
+      - TZ=Europe/Moscow
+      - BOT_TOKEN=
+      - BOT_ENV=PROD
+      - MONGO_NAME=invest
+      - MONGO_COLLECTION=notifications
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - CHAT_ID=
+      - TIME_OUT=3
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:latest
+    volumes:
+     - mongodb_volume:/data/db
+    restart: always

@@ -1,6 +1,5 @@
 # Project exclude paths
 /venv/
-docker-compose.yml
 docker_faq.md
 .idea
 app/core/errors.log

@@ -17,7 +17,7 @@ class MongodbService:
     Class for async CRUD document in Mongo
     """
 
-    def __init__(self, host: str = 'localhost', port: int = 27017,
+    def __init__(self, host: str = config_data.get("MONGO_HOST"), port: int = config_data.get("MONGO_PORT"),
                  db: str = config_data.get("MONGO_NAME"), collection: str = config_data.get("MONGO_COLLECTION")):
         self._client = motor.motor_asyncio.AsyncIOMotorClient(host, port)
         self._db = self._client[db]

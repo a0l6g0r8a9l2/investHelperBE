@@ -1,7 +1,7 @@
 import asyncio
 import copy
 import logging
-from asyncio.exceptions import CancelledError, TimeoutError
+from asyncio import CancelledError, TimeoutError
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Optional
@@ -310,5 +310,5 @@ async def fetch_url(url: str):
             r.raise_for_status()
         return response
     except httpx.HTTPError as exc:
-        logging.error(f'HTTP Exception - {exc}')
+        logging.warning(f'HTTP Exception - {exc}')
         return None

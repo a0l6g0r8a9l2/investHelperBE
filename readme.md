@@ -1,35 +1,21 @@
-1. Build image
-    
-    `docker build -t notification-invest-helper-bot .`
+## Run local with docker 
+(file with env params and name settings.py required)
 
-2. Login to DockerHub
-    
-    `docker login -u login -p password`
+### 1. Run mongo
 
-3. Login to Heroku (Heroku account and CLI required)
+`docker run --rm -d -p 27017:27017 mongo`
 
-    `heroku login`
-    
-4. Login to Heroku container
+### 2. Build app image
+   
+`docker build -t notification-invest-helper-bot .`
+      
+### 3. Run app
 
-    `heroku container:login`
-    
-5. Create Heroku App
+`docker run -d --name notify -p 127.0.0.1:8000:80 notification:latest`
 
-    `heroku create --app notification-invest-helper-bot`
-    
-6. Push image to Heroku
+## Run with docker-compose 
+(BOT_TOKEN in environment section docker-compose.yml required)
 
-    `heroku container:push web --app notification-invest-helper-bot`
-  
-7. Release Heroku App
+### 1. docker-compose build
 
-    `heroku container:release web --app notification-invest-helper-bot`
-
-8. Open App 
-
-    `heroku open --app notification-invest-helper-bot`
-
-9. Check App logs
-
-    `heroku logs --app notification-invest-helper-bot`
+### 2. docker-compose up -d
