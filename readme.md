@@ -16,6 +16,10 @@
 ## Run with docker-compose 
 (BOT_TOKEN in environment section docker-compose.yml required)
 
-### 1. docker-compose build
+### 1. Build
 
-### 2. docker-compose up -d
+`docker-compose build`
+
+### 2. Run
+
+`docker-compose up -d`
