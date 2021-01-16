@@ -2,13 +2,13 @@ version: 1
 disable_existing_loggers: False
 formatters:
   simple:
-    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format: "%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s"
   uvicorn_colored:
     "()": uvicorn.logging.DefaultFormatter
-    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format: "%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s"
   uvicorn_access:
     "()": uvicorn.logging.AccessFormatter
-    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format: "%(asctime)s - %(threadName)s- %(name)s - %(levelname)s - %(message)s"
 
 handlers:
   console:
@@ -47,7 +47,7 @@ handlers:
 
 loggers:
   my_module:
-    level: INFO
+    level: DEBUG
     handlers: [console]
     propagate: no
   uvicorn.access:
@@ -62,5 +62,5 @@ loggers:
     propagate: no
 
 root:
-  level: INFO
+  level: DEBUG
   handlers: [console, info_file_handler, error_file_handler]

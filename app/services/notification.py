@@ -5,6 +5,7 @@ from asyncio import CancelledError, TimeoutError
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Optional
+from uuid import uuid4
 
 import httpx
 from aiogram import Bot
@@ -41,7 +42,6 @@ class Notification:
 
     def __init__(self, stock: Stock,
                  targetPrice: float,
-                 id: Optional[str] = None,
                  event: Optional[str] = None,
                  action: Optional[ActionsOnExchange] = ActionsOnExchange.buy.value,
                  delay: Optional[int] = 5,
@@ -49,7 +49,7 @@ class Notification:
                  chatId: str = config_data.get("CHAT_ID")):
         self.stock = stock
         self.targetPrice = targetPrice
-        self.id = id
+        self._id = str(uuid4())
         self.action = action
         self.delay = delay
         self.endNotification = endNotification
@@ -69,7 +69,7 @@ class Notification:
         end_notification = str(end_notification)
         notification_dict.update({'endNotification': end_notification})
         dict_representation = {**notification_dict, **stock_dict}
-        logger.debug(dict_representation)
+        logging.debug(f'Log from dict_repr: {dict_representation}')
         return dict_representation
 
     def __repr__(self):
@@ -86,7 +86,8 @@ class NotificationService:
 
     """
     states = ['new', 'checking_exchange', 'price_scheduling', 'expired', 'done', 'canceled']
-    _instances = {}
+    storage = MongodbService()
+    loop = asyncio.get_event_loop()
 
     def __init__(self, notification: Notification):
         self.notification = notification
@@ -95,44 +96,38 @@ class NotificationService:
         self._scheduler: [AsyncIOScheduler] = AsyncIOScheduler()
         self.machine = AsyncMachine(model=self, states=NotificationService.states, initial='new')
         self.machine.add_transition(trigger='checking_exchange', source='new', dest='checking_exchange')
-        self.machine.add_transition(trigger='price_scheduling', source='checking_exchange', dest='price_scheduling',
-                                    unless='expired_check')
-        self.machine.add_transition(trigger='time_is_over', source='*', dest='expired')
-        self.machine.add_transition(trigger='work_is_done', source='price_scheduling', dest='done',
-                                    conditions='done_check')
+        self.machine.add_transition(trigger='price_scheduling', source='checking_exchange', dest='price_scheduling')
+        self.machine.add_transition(trigger='time_is_over', source='*', dest='expired', conditions='expired_check')
+        self.machine.add_transition(trigger='work_is_done', source=['checking_exchange', 'price_scheduling'], dest='done')
         self.machine.add_transition(trigger='cancel', source=['new', 'checking_exchange', 'price_scheduling'],
                                     dest='canceled')
 
     @classmethod
-    def get_instance_by_notification_id(cls, notification_id):
+    async def get_notification(cls, notification_id: str):
         """
-        Получить инстанс класса по notification_id.
-        Можно использовать для смены состояния инстанса из вне
+        Get notification from DB
 
-        :param notification_id: идентификатор инстанса класса уведомлений
-        :return: инстанс NotificationService
-        :raise: ValueError, если идентификатор инстанса класса уведомлений не найден
+        :param notification_id: id created notification
+        :return: dict repr of Notification
         """
-        for k, v in cls._instances.items():
-            if k == notification_id:
-                return v
-        raise ValueError(notification_id)
+        notification = await cls.storage.get_one_by_id(notification_id)  #
+        if notification:
+            _id = notification.pop('_id')
+            notification.update({'id': _id})
+            return notification
+        logging.debug(f'Log from get_notification: {notification}')
 
     @classmethod
-    def __delete_instance_by_notification_id(cls, notification_id):
+    async def delete_notification(cls, notification_id: str):
         """
-        Приватный класс удаления
+        Delete notification from DB
 
-        :param notification_id: идентификатор инстанса класса уведомлений
-        :return: True
-        :raise: KeyError, если идентификатор инстанса класса уведомлений не найден
+        :param notification_id: id created notification
+        :return: dict repr of Notification
         """
-        try:
-            cls._instances.pop(notification_id)
-        except KeyError as err:
-            logging.error(err.args)
-        else:
-            return True
+        notification = await cls.storage.delete_one_by_id(notification_id)
+        logging.debug(f'Log from delete_notification: {notification}')
+        return notification
 
     async def on_enter_checking_exchange(self):
         """
@@ -154,25 +149,23 @@ class NotificationService:
             logging.debug(f'URL for {self.notification.stock.ticker}: {self._url}')
 
             # set self attribute
-            self.set_self_attr(api_response=response)
+            await self.set_self_attr(api_response=response)
 
-            # save notification to DB and set notification.id
-            self.notification.id = await self._mongo.create_one(self.notification.dict_repr())
-
-            # update dict of class instances
-            self._instances.update({self.notification.id: self})
-            logging.debug(f'notification id {self.notification.id} got from DB')
+            # save notification to DB
+            await self._mongo.create_one(self.notification.dict_repr())
+            logging.debug(f'notification id {self.notification._id} got from DB')
         except CancelledError:
-            done, pending = asyncio.wait(*asyncio.tasks.all_tasks())
+            done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)
         except (TimeoutError, httpx.HTTPError, AssertionError) as err:
             logging.error(err.args)
             raise err
         else:
             logging.debug(f'Updated id dict_repr {self.notification.dict_repr()}')
+            self.loop.create_task(self.to_price_scheduling())
             return self.notification.dict_repr()
 
-    def set_self_attr(self, api_response: dict):
+    async def set_self_attr(self, api_response: dict):
         """
         Обновляет атрибуты инстанса Notification после получения актуальной цены
 
@@ -192,77 +185,102 @@ class NotificationService:
 
     async def on_enter_price_scheduling(self):
         """
-        Запускает шедулинг цены и done_check()
+        Запускает шедулинг цены и проверку на done/expire/cancel
 
         :return: None
         """
-        logging.info(f'State {self.state} and scheduling price for id: {self.notification.id}...')
+        logging.info(f'State {self.state} and scheduling price for id: {self.notification._id}...')
         try:
+            self.loop.create_task(self.send_notification())
+
             new_price = await asyncio.create_task(asyncio.wait_for(fetch_url(self._url), timeout=TIME_OUT))
             set_price = partial(self.set_self_attr, new_price)
-            self._scheduler.add_job(set_price, 'interval', seconds=self.notification.delay, id=self.notification.id)
+            done_check = partial(self.done_check)
+            cancel_check = partial(self.cancel_check)
+            self._scheduler.add_job(set_price, 'interval', seconds=self.notification.delay,
+                                    id=str(self.notification._id + '_set_price'),
+                                    name='set_price')
+            self._scheduler.add_job(done_check, 'interval',
+                                    seconds=self.notification.delay,
+                                    id=str(self.notification._id + '_done_check'),
+                                    name='done_check')
+            self._scheduler.add_job(cancel_check, 'interval',
+                                    seconds=self.notification.delay,
+                                    id=str(self.notification._id + '_cancel_check'),
+                                    name='cancel_check')
+            self._scheduler.add_job(self.expired_check, 'interval',
+                                    seconds=self.notification.delay,
+                                    id=str(self.notification._id + '_expired_check'),
+                                    name='expired_check')
             self._scheduler.start()
-            check_price = await self.done_check()
-            if check_price:
-                await self.work_is_done()
-            asyncio.create_task(self.send_notification())
         except CancelledError:
-            done, pending = asyncio.wait(*asyncio.tasks.all_tasks())
+            done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)
         except (TimeoutError, httpx.HTTPError) as err:
             raise err
 
     async def on_enter_done(self):
-        logging.info(f'State {self.state} for id: {self.notification.id}!')
+        logging.info(f'State {self.state} for id: {self.notification._id}!')
         try:
             asyncio.create_task(self.send_notification())
             self._scheduler.shutdown()
         except CancelledError:
-            done, pending = asyncio.wait(*asyncio.tasks.all_tasks())
+            done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)
 
     async def on_enter_expired(self):
-        logging.info(f'State {self.state} for id: {self.notification.id}!')
+        logging.info(f'State {self.state} for id: {self.notification._id}!')
         try:
             asyncio.create_task(self.send_notification())
+            self._scheduler.shutdown()
         except CancelledError:
-            done, pending = asyncio.wait(*asyncio.tasks.all_tasks())
+            done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)
 
-    async def expired_check(self):
+    def expired_check(self):
         if datetime.now() >= self.notification.endNotification:
-            logging.debug(f'State {self.state} and return expired check {True} for id: {self.notification.id}!')
-            await self.time_is_over()
+            logging.debug(f'State {self.state} and return expired check {True} for id: {self.notification._id}!')
+            self.time_is_over()
             return True
         else:
-            logging.debug(f'State {self.state} and return expired check {False} for id: {self.notification.id}!')
+            logging.debug(f'State {self.state} and return expired check {False} for id: {self.notification._id}!')
             return False
 
-    async def done_check(self):
-        """
-        Проверяет достигла ли цена целевого значения
-        :return:
-            True, если цена достигла целевого значения
-            False, иначе
-        """
+    def done_check(self):
         if self.notification.stock.price == self.notification.targetPrice or \
                 (self.notification.action == str(ActionsOnExchange.buy.value)
                  and self.notification.stock.price <= self.notification.targetPrice) or \
                 (self.notification.action == str(ActionsOnExchange.sell.value)
                  and self.notification.stock.price >= self.notification.targetPrice):
+            self.loop.create_task(self.work_is_done())
             logging.debug(f'State {self.state} and return done check {True}!')
             return True
         else:
             logging.debug(f'State {self.state} and return done check {False}!')
             return False
 
+    async def cancel_check(self):
+        try:
+            obj = await self.get_notification(self.notification._id)
+            logging.debug(f'Cancel_check return: {obj}!')
+            if obj:
+                logging.debug(f'State {self.state} and return cancel_check {False}!')
+                return False
+            else:
+                logging.debug(f'State {self.state} and return cancel_check {True}!')
+                self.loop.create_task(self.cancel())
+                return True
+        except CancelledError:
+            done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
+            await asyncio.gather(pending)
+
     async def on_enter_canceled(self):
-        logging.info(f'State {self.state} for id: {self.notification.id}!')
+        logging.info(f'State {self.state} for id: {self.notification._id}!')
         try:
             asyncio.create_task(self.send_notification())
-            self.__delete_instance_by_notification_id(self.notification.id)
+            self._scheduler.shutdown()
         except CancelledError:
-            done, pending = asyncio.wait(*asyncio.tasks.all_tasks())
+            done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)
 
     async def send_notification(self):
@@ -284,9 +302,9 @@ class NotificationService:
                       f'Target {self.notification.targetPrice}.\n' \
                       f'Current price is {self.notification.stock.price}'
             elif self.state == 'canceled':
-                msg = f'Notification {self.notification.id} is canceled!'
+                msg = f'Notification {self.notification._id} is canceled!'
             elif self.state == 'price_scheduling':
-                msg = f'Notification {self.notification.id} created!\n' \
+                msg = f'Notification {self.notification._id} created!\n' \
                       f'Target price: {self.notification.targetPrice}.\n' \
                       f'Current price is {self.notification.stock.price}'
             if msg:

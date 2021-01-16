@@ -16,7 +16,7 @@ from app.core.logging import setup_logging
 from app.models.models import StockPriceNotificationRead, StockPriceNotificationCreate, responses, Stock
 from app.services.notification import Notification, NotificationService
 
-# сетап конфиг и логгер
+
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -52,9 +52,9 @@ async def add_notification_stock_price(notification_request: StockPriceNotificat
                                           endNotification=notification_request.endNotification,
                                           chatId=notification_request.chatId)
         service = NotificationService(notification_model)
-        await service.checking_exchange()
-        await service.price_scheduling()
-        response = StockPriceNotificationRead(**service.notification.dict_repr())
+        await service.checking_exchange()  # todo: pretty name for first state
+        notification = await service.get_notification(notification_model._id)
+        response = StockPriceNotificationRead(**notification)
         return response
     except (KeyError, ValueError, AttributeError, MachineError) as v_err:
         logging.error(v_err.args)
@@ -88,7 +88,7 @@ async def get_notification_stock_price_by_id(id: str = Path(...,
     Контролер для чтения уведомлений о изменении цены акции
     """
     try:
-        notification: dict = NotificationService.get_instance_by_notification_id(id).notification.dict_repr()
+        notification = await NotificationService.get_notification(id)
         response = StockPriceNotificationRead(**notification)
         return response
     except (KeyError, ValueError, AttributeError, MachineError) as v_err:
@@ -122,8 +122,7 @@ async def delete_notification_stock_price_by_id(id: str = Path(...,
     Контролер для удаления уведомлений о изменении цены акции
     """
     try:
-        notification = NotificationService.get_instance_by_notification_id(id)
-        await notification.cancel()
+        await NotificationService.delete_notification(id)
         return JSONResponse(status_code=HTTP_204_NO_CONTENT)
     except (KeyError, ValueError, AttributeError, MachineError) as v_err:
         logging.error(v_err.args)
