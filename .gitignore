@@ -6,5 +6,8 @@ app/core/errors.log
 app/core/info.log
 app/core/settings.py
 app/.pytest_cache
+bot/core/settings.py
+bot/core/errors.log
+bot/core/info.log
 docker-compose.yml
 .pytest_cache

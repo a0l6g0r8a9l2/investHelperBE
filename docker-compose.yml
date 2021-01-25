@@ -13,13 +13,13 @@ services:
       - "8000:80"
     environment:
       - TZ=Europe/Moscow
-      - BOT_TOKEN=
+      - BOT_TOKEN=1482285686:AAELI4Uhzf_ql49fgohczkTGbyZailNJHtg
       - BOT_ENV=PROD
       - MONGO_NAME=invest
       - MONGO_COLLECTION=notifications
       - MONGO_HOST=mongodb
       - MONGO_PORT=27017
-      - CHAT_ID=
+      - CHAT_ID=411442889
       - TIME_OUT=3
     depends_on:
       - mongodb

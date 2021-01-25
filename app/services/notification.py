@@ -18,7 +18,6 @@ from app.core.logging import setup_logging
 from app.db.mongo import MongodbService
 from app.models.models import ActionsOnExchange, Stock, ExchangeSuffix
 
-# сетап конфиг и логгер
 setup_logging()
 logger = logging.getLogger(__name__)
 
