@@ -1,4 +1,5 @@
-#!venv/bin/python
+#!/usr/bin/venv python
+# -*- coding: utf-8 -*
 import asyncio
 import logging
 
@@ -9,6 +10,7 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.core import config_data
+from bot.core.exceptions import MakeRequestError
 from bot.core.logging import setup_logging
 from bot.core.middlewares import AccessMiddleware
 from bot.services.notification import NotificationService
@@ -124,21 +126,22 @@ async def notify_waiting_for_delay(callback_query: types.CallbackQuery, state: F
 
 @dp.message_handler(state=OrderNotification.waiting_for_event, content_types=types.ContentTypes.TEXT)
 async def notify_waiting_for_event(message: types.Message, state: FSMContext):
-    logging.debug(f'Log from {notify_waiting_for_event}: {message.text}')
-    await state.update_data(event=message.text)
-    data = await state.get_data()
-    data['chatId'] = message.from_user.id
-    asyncio.create_task(NotificationService().create(tg_notification=data))
-    logging.debug(f'Log from {notify_waiting_for_event}: {data}')
+    try:
+        logging.debug(f'Log from {notify_waiting_for_event}: {message.text}')
+        await state.update_data(event=message.text)
+        data = await state.get_data()
+        data['chatId'] = message.from_user.id
+        asyncio.create_task(NotificationService().create(tg_notification=data))
+        logging.debug(f'Log from {notify_waiting_for_event}: {data}')
+    except MakeRequestError as err:
+        await message.answer(f'Не удалось создать уведомление из-за проблем на сети.\n'
+                             f'Пожалуйста, попробуйте позднее...')
+        logging.error(f'Error for {message.from_user.id} with args: {err.args}')
 
 
 async def shutdown(dispatcher: Dispatcher):
     await dispatcher.storage.close()
     await dispatcher.storage.wait_closed()
-
-# todo: add delete notification
-# todo: add requirements.txt
-# todo: add dockerfile
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=False, on_shutdown=shutdown)

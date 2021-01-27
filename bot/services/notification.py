@@ -6,13 +6,12 @@ from typing import Optional
 import httpx
 
 from bot.core import config_data
+from bot.core.exceptions import PrepareRequestError, MakeRequestError
 from bot.core.logging import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-
-# todo: выделить запросы к апи в интеррфейс и реализовать класс для создания Notification на базе интеррфейса
 
 class NotificationService:
     headers = {
@@ -49,48 +48,29 @@ class NotificationService:
             return response
         except httpx.HTTPError as exc:
             logging.error(f'HTTP Exception - {exc}')
+            raise MakeRequestError
 
     @staticmethod
     def _prepare_request_params(tg_notification: dict) -> dict:
-        if tg_notification.get('price'):
-            tg_notification['targetPrice'] = float(tg_notification.pop('price'))
-        if tg_notification.get('end_notification').endswith('m'):
-            tg_notification['endNotification'] = str(
-                datetime.now() + timedelta(minutes=int(tg_notification.pop('end_notification')[:-1])))
-        elif tg_notification.get('end_notification').endswith('h'):
-            tg_notification['endNotification'] = str(
-                datetime.now() + timedelta(hours=int(tg_notification.pop('end_notification')[:-1])))
-        elif tg_notification.get('end_notification').endswith('d'):
-            tg_notification['endNotification'] = str(
-                datetime.now() + timedelta(days=int(tg_notification.pop('end_notification')[:-1])))
-        if tg_notification.get('delay').endswith('s'):
-            tg_notification['delay'] = int(tg_notification.get('delay')[:-1])
-        elif tg_notification.get('delay').endswith('m'):
-            tg_notification['delay'] = int(tg_notification.get('delay')[:-1]) * 60
-        elif tg_notification.get('delay').endswith('h'):
-            tg_notification['delay'] = int(tg_notification.get('delay')[:-1]) * 60 * 60
-        return tg_notification
-
-    async def delete(self, notification_id: str, url: Optional[str] = None, headers: Optional[dict] = None) -> dict:
-        """
-        Delete notification by id
-
-        :param notification_id: notification_id: str
-        :param url: url
-        :param headers: headers
-        :return: response dict
-        """
-        if not headers:
-            headers = self.headers
-        if not url:
-            url = self.url + notification_id
-
         try:
-            async with httpx.AsyncClient() as client:
-                r = await client.delete(url, headers=headers)
-                response = r.json()
-                r.raise_for_status()
-                logging.debug(f'Log from {self.create.__name__}: {r.status_code} {response}')
-            return response
-        except httpx.HTTPError as exc:
-            logging.error(f'HTTP Exception - {exc}')
+            if tg_notification.get('price'):
+                tg_notification['targetPrice'] = float(tg_notification.pop('price'))
+            if tg_notification.get('end_notification').endswith('m'):
+                tg_notification['endNotification'] = str(
+                    datetime.now() + timedelta(minutes=int(tg_notification.pop('end_notification')[:-1])))
+            elif tg_notification.get('end_notification').endswith('h'):
+                tg_notification['endNotification'] = str(
+                    datetime.now() + timedelta(hours=int(tg_notification.pop('end_notification')[:-1])))
+            elif tg_notification.get('end_notification').endswith('d'):
+                tg_notification['endNotification'] = str(
+                    datetime.now() + timedelta(days=int(tg_notification.pop('end_notification')[:-1])))
+            if tg_notification.get('delay').endswith('s'):
+                tg_notification['delay'] = int(tg_notification.get('delay')[:-1])
+            elif tg_notification.get('delay').endswith('m'):
+                tg_notification['delay'] = int(tg_notification.get('delay')[:-1]) * 60
+            elif tg_notification.get('delay').endswith('h'):
+                tg_notification['delay'] = int(tg_notification.get('delay')[:-1]) * 60 * 60
+            return tg_notification
+        except (KeyError, ValueError) as err:
+            logging.error(f'Log from _prepare_request_params: {err.args}')
+            raise PrepareRequestError(f'Could not prepare request from data')
