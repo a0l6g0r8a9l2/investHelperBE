@@ -5,5 +5,5 @@ class PrepareRequestError(Exception):
     pass
 
 
-class MakeRequestError(httpx.HTTPError):
+class MakeRequestError(Exception):
     pass

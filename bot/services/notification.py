@@ -1,5 +1,6 @@
 #!venv/bin/python
 import logging
+import sys
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -21,7 +22,7 @@ class NotificationService:
     host = config_data.get("NOTIFICATION_SERVICE_HOST")
     port = config_data.get("NOTIFICATION_SERVICE_PORT")
     base_path = '/stocks/notification/'
-    url = f'{host}:{port}{base_path}'
+    url = f'http://{host}:{port}{base_path}'
 
     async def create(self, tg_notification: dict, url: Optional[str] = None, headers: Optional[dict] = None) -> dict:
         """
@@ -41,14 +42,16 @@ class NotificationService:
 
         try:
             async with httpx.AsyncClient() as client:
+                logging.debug(f'Log from {self.create.__name__}: url: {url}')
                 r = await client.post(url, headers=headers, json=params)
                 response = r.json()
+                logging.debug(
+                    f'Log from {self.create.__name__}: url: {url}, status: {r.status_code}, response: {response}')
                 r.raise_for_status()
-                logging.debug(f'Log from {self.create.__name__}: {r.status_code} {response}')
             return response
         except httpx.HTTPError as exc:
             logging.error(f'HTTP Exception - {exc}')
-            raise MakeRequestError
+            raise MakeRequestError(f'HTTP error with: {exc.with_traceback(sys.exc_info()[2])}')
 
     @staticmethod
     def _prepare_request_params(tg_notification: dict) -> dict:

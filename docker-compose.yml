@@ -19,10 +19,25 @@ services:
       - MONGO_COLLECTION=notifications
       - MONGO_HOST=mongodb
       - MONGO_PORT=27017
-      - CHAT_ID=411442889
+      - CHAT_ID=
       - TIME_OUT=3
     depends_on:
       - mongodb
+
+  bot:
+    build: ./bot
+    container_name: notification-bot
+    restart: always
+    environment:
+      - TZ=Europe/Moscow
+      - TELEGRAM_API_TOKEN=
+      - BOT_ENV=PROD
+      - TELEGRAM_ACCESS_ID=
+      - NOTIFICATION_SERVICE_HOST=notification-service
+      - NOTIFICATION_SERVICE_PORT=80
+      - TIME_OUT=3
+    depends_on:
+      - notification
 
   mongodb:
     image: mongo:latest
