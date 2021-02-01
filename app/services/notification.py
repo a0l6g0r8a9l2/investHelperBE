@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from typing import Optional
 from uuid import uuid4
+import random
 
 import httpx
 from aiogram import Bot
@@ -320,9 +321,18 @@ async def fetch_url(url: str):
     :param url: url
     :return: dict with data from API
     """
+    user_agent_lst = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/88.0.4324.104 Safari/537.36',
+                      'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/84.0',
+                      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_0) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/75.0.3770.100 Safari/537.36']
+    headers = {
+        'authority': 'query1.finance.yahoo.com',
+        'user-agent': random.choice(user_agent_lst)
+    }
     try:
         async with httpx.AsyncClient() as client:
-            r = await client.get(url)
+            r = await client.get(url, headers=headers)
             response = r.json()
             r.raise_for_status()
         return response
