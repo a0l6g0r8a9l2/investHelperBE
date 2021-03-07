@@ -40,15 +40,16 @@ class MarkdownMessageBuilder(MarkdownFormatter):
             notify_id = 'ID: ' + self.bold(f'{message.payload.id}')
             current_price = 'Текущая цена: ' + self.bold(f'{message.payload.currentPrice}')
             asset_ticker = 'Инструмент с тикером ' + self.bold(f'{message.payload.ticker}')
+            action = 'Действие: ' + self.bold(f'{message.payload.action}!')
             if message.payload.state == 'price_scheduling':
                 title = self.bold(f'Шедулер создан!')
                 msg = title + '\n' + asset_ticker + '\n' + notify_id + '\n' + target_price + '\n' + current_price
             elif message.payload.state == 'done':
                 title = self.bold('Шедулер успешно отработал!')
-                msg = title + '\n' + asset_ticker + '\n' + current_price
+                msg = title + '\n' + asset_ticker + '\n' + current_price + '\n' + target_price + '\n' + action
             elif message.payload.state == 'expired':
                 title = self.bold('Время работы шедулера истекло!')
-                msg = title + '\n' + notify_id + '\n' + asset_ticker + '\n' + current_price
+                msg = title + '\n' + notify_id + '\n' + asset_ticker + '\n' + current_price + '\n' + target_price
             elif message.payload.state == 'canceled':
                 title = self.bold('Шедулер отменен!')
                 msg = title + '\n' + notify_id + '\n' + asset_ticker + '\n' + current_price
