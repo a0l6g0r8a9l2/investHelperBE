@@ -70,6 +70,21 @@ class StockPriceNotificationRead(StockPriceNotificationCreate):
                     example="5f46c2950e4f4ea916ec05ab")
 
 
+class NotificationPayload(BaseModel):
+    id: Optional[str]
+    state: str
+    ticker: str
+    action: str
+    event: Optional[str]
+    targetPrice: float
+    currentPrice: Optional[float]
+
+
+class NotificationMessage(BaseModel):
+    chatId: str
+    payload: NotificationPayload
+
+
 @unique
 class ExchangeSuffix(Enum):
     moscow_exchange = '.ME'

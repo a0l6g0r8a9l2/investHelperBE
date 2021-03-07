@@ -1,23 +1,22 @@
 import asyncio
 import copy
 import logging
+import random
 from asyncio import CancelledError, TimeoutError
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Optional
 from uuid import uuid4
-import random
 
 import httpx
-from aiogram import Bot
-from aiogram.utils.exceptions import TelegramAPIError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from transitions.extensions.asyncio import AsyncMachine
 
 from app.core import config_data
 from app.core.logging import setup_logging
 from app.db.mongo import MongodbService
-from app.models.models import ActionsOnExchange, Stock, ExchangeSuffix
+from app.db.redis_pub import RedisPublisher
+from app.models.models import ActionsOnExchange, Stock, ExchangeSuffix, NotificationPayload, NotificationMessage
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -98,7 +97,8 @@ class NotificationService:
         self.machine.add_transition(trigger='checking_exchange', source='new', dest='checking_exchange')
         self.machine.add_transition(trigger='price_scheduling', source='checking_exchange', dest='price_scheduling')
         self.machine.add_transition(trigger='time_is_over', source='*', dest='expired', conditions='expired_check')
-        self.machine.add_transition(trigger='work_is_done', source=['checking_exchange', 'price_scheduling'], dest='done')
+        self.machine.add_transition(trigger='work_is_done', source=['checking_exchange', 'price_scheduling'],
+                                    dest='done')
         self.machine.add_transition(trigger='cancel', source=['new', 'checking_exchange', 'price_scheduling'],
                                     dest='canceled')
 
@@ -289,30 +289,38 @@ class NotificationService:
         :return:
         """
         try:
-            msg = ''
+            payload = ''
             if self.state == 'done':
-                if self.notification.action:
-                    msg2 = f'You can {self.notification.action}!'
-                if self.notification.endNotification:
-                    msg3 = f'Event: {self.notification.event}.\n'
-                msg = f'Target {self.notification.targetPrice} has reached!\n{str(msg3)}' \
-                      f'Current price is {self.notification.stock.price}.\n{str(msg2)}'
+                payload = NotificationPayload(state='done',
+                                              ticker=self.notification.stock.ticker,
+                                              action=self.notification.action,
+                                              targetPrice=self.notification.targetPrice,
+                                              event=self.notification.event,
+                                              currentPrice=self.notification.stock.price)
             elif self.state == 'expired':
-                msg = f'Notification life time is over!\n' \
-                      f'Target {self.notification.targetPrice}.\n' \
-                      f'Current price is {self.notification.stock.price}'
+                payload = NotificationPayload(state='expired',
+                                              ticker=self.notification.stock.ticker,
+                                              targetPrice=self.notification.targetPrice,
+                                              currentPrice=self.notification.stock.price)
             elif self.state == 'canceled':
-                msg = f'Notification {self.notification._id} is canceled!'
+                payload = NotificationPayload(state='canceled',
+                                              id=self.notification._id,
+                                              ticker=self.notification.stock.ticker,
+                                              targetPrice=self.notification.targetPrice)
             elif self.state == 'price_scheduling':
-                msg = f'Notification {self.notification._id} created!\n' \
-                      f'Target price: {self.notification.targetPrice}.\n' \
-                      f'Current price is {self.notification.stock.price}'
-            if msg:
-                bot = Bot(token=config_data.get("TOKEN"))
-                await bot.send_message(chat_id=self.notification.chatId, text=msg)
-                await bot.close()
-        except TelegramAPIError as tae:
-            logging.error(tae.args)
+                payload = NotificationPayload(state='price_scheduling',
+                                              id=self.notification._id,
+                                              ticker=self.notification.stock.ticker,
+                                              action=self.notification.action,
+                                              targetPrice=self.notification.targetPrice,
+                                              event=self.notification.event,
+                                              currentPrice=self.notification.stock.price)
+            if payload:
+                publisher = RedisPublisher()
+                message = NotificationMessage(chatId=self.notification.chatId, payload=payload)
+                await publisher.start(message=message.json(), queue=config_data.get('REDIS_NOTIFICATION_QUEUE'))
+        except Exception as exc:
+            logging.error(exc.args)
 
 
 async def fetch_url(url: str):

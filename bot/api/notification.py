@@ -6,7 +6,7 @@ from typing import Optional
 
 import httpx
 
-from bot.core import config_data
+from bot.core import cfg
 from bot.core.exceptions import PrepareRequestError, MakeRequestError
 from bot.core.logging import setup_logging
 
@@ -19,12 +19,14 @@ class NotificationService:
         'accept': 'application/json',
         'Content-Type': 'application/json',
     }
-    host = config_data.get("NOTIFICATION_SERVICE_HOST")
-    port = config_data.get("NOTIFICATION_SERVICE_PORT")
+    host = cfg.get("NOTIFICATION_SERVICE_HOST")
+    port = cfg.get("NOTIFICATION_SERVICE_PORT")
     base_path = '/stocks/notification/'
     url = f'http://{host}:{port}{base_path}'
 
-    async def create(self, tg_notification: dict, url: Optional[str] = None, headers: Optional[dict] = None) -> dict:
+    async def create_notification(self, tg_notification: dict,
+                                  url: Optional[str] = None,
+                                  headers: Optional[dict] = None) -> Optional[dict]:
         """
         Create notification
 
@@ -42,16 +44,17 @@ class NotificationService:
 
         try:
             async with httpx.AsyncClient() as client:
-                logging.debug(f'Log from {self.create.__name__}: url: {url}')
-                r = await client.post(url, headers=headers, json=params)
-                response = r.json()
+                logging.debug(f'Log from {self.create_notification.__name__}: url: {url}')
+                response = await client.post(url, headers=headers, json=params)
                 logging.debug(
-                    f'Log from {self.create.__name__}: url: {url}, status: {r.status_code}, response: {response}')
-                r.raise_for_status()
-            return response
+                    f'Log from {self.create_notification.__name__}: url: {url}, status: {response.status_code}')
+                if response.status_code != 201:
+                    raise MakeRequestError(f'HTTP error with: {response.status_code}')
+                else:
+                    response = response.json()
+                    return response
         except httpx.HTTPError as exc:
             logging.error(f'HTTP Exception - {exc}')
-            raise MakeRequestError(f'HTTP error with: {exc.with_traceback(sys.exc_info()[2])}')
 
     @staticmethod
     def _prepare_request_params(tg_notification: dict) -> dict:

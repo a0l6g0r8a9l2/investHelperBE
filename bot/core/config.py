@@ -19,7 +19,10 @@ def load_config():
                 "NOTIFICATION_SERVICE_HOST": str(os.environ.get('NOTIFICATION_SERVICE_HOST')),
                 "NOTIFICATION_SERVICE_PORT": str(os.environ.get('NOTIFICATION_SERVICE_PORT')),
                 "BOT_ENV": str(os.environ.get('BOT_ENV')),
-                "TIME_OUT": int(os.environ.get('TIME_OUT'))
+                "TIME_OUT": int(os.environ.get('TIME_OUT')),
+                "REDIS_HOST": str(os.environ.get('REDIS_HOST')),
+                "REDIS_PORT": str(os.environ.get('REDIS_PORT')),
+                "REDIS_NOTIFICATION_QUEUE": str(os.environ.get('REDIS_NOTIFICATION_QUEUE'))
             }
             return info
     except (TypeError, ValueError, ImportError) as err:

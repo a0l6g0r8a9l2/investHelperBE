@@ -24,7 +24,10 @@ def load_config():
                 "MONGO_PASSWORD": str(os.environ.get('MONGO_PASSWORD')),
                 "MONGO_COLLECTION": str(os.environ.get('MONGO_COLLECTION')),
                 "CHAT_ID": str(os.environ.get('CHAT_ID')),
-                "TIME_OUT": int(os.environ.get('TIME_OUT'))
+                "TIME_OUT": int(os.environ.get('TIME_OUT')),
+                "REDIS_HOST": str(os.environ.get('REDIS_HOST')),
+                "REDIS_PORT": int(os.environ.get('REDIS_PORT')),
+                "REDIS_NOTIFICATION_QUEUE": str(os.environ.get('REDIS_NOTIFICATION_QUEUE'))
             }
             return info
     except (TypeError, ValueError, ImportError) as err:

@@ -1,6 +1,3 @@
-import httpx
-
-
 class PrepareRequestError(Exception):
     pass
 
