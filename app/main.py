@@ -43,7 +43,7 @@ async def add_notification_stock_price(notification_request: StockPriceNotificat
     try:
         notification_request.dict(exclude_unset=True)
         logging.debug(notification_request)
-        stock = Stock(ticker=notification_request.ticker.capitalize())
+        stock = Stock(ticker=notification_request.ticker.upper())
         notification_model = Notification(stock=stock,
                                           targetPrice=notification_request.targetPrice,
                                           action=notification_request.action,

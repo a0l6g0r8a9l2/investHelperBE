@@ -25,7 +25,6 @@ async def set_commands(tg_bot: Bot):
 
 
 async def main():
-    # Объявление и инициализация объектов бота и диспетчера
     bot = Bot(token=cfg.get("TELEGRAM_API_TOKEN"))
     dp = Dispatcher(bot, storage=MemoryStorage())
 
@@ -39,7 +38,7 @@ async def main():
     notify_listener = RedisListener()
 
     try:
-        await asyncio.gather(dp.start_polling(), notify_listener.start())
+        await asyncio.gather(dp.start_polling(), notify_listener.start(bot=bot, queue=cfg.get('REDIS_NOTIFICATION_QUEUE')))
     finally:
         await dp.storage.close()
         await dp.storage.wait_closed()

@@ -2,6 +2,7 @@ version: "3.7"
 
 volumes:
   mongodb_volume:
+  redis_volume:
 
 services:
 
@@ -20,6 +21,9 @@ services:
       - MONGO_HOST=mongodb
       - MONGO_PORT=27017
       - CHAT_ID=
+      - REDIS_PORT=6379
+      - REDIS_HOST=redis
+      - REDIS_NOTIFICATION_QUEUE=notification:stock:price:received
       - TIME_OUT=3
     depends_on:
       - mongodb
@@ -34,7 +38,10 @@ services:
       - BOT_ENV=PROD
       - TELEGRAM_ACCESS_ID=
       - NOTIFICATION_SERVICE_HOST=notification-service
+      - REDIS_NOTIFICATION_QUEUE=notification:stock:price:received
       - NOTIFICATION_SERVICE_PORT=80
+      - REDIS_PORT=6379
+      - REDIS_HOST=redis
       - TIME_OUT=3
     depends_on:
       - notification
@@ -43,4 +50,10 @@ services:
     image: mongo:latest
     volumes:
      - mongodb_volume:/data/db
+    restart: always
+
+  redis:
+    image: "redis:alpine"
+    volumes:
+      - redis_volume:/data
     restart: always

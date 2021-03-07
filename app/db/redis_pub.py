@@ -1,7 +1,7 @@
 import logging
 
 import aioredis
-from aioredis import ConnectionForcedCloseError
+from aioredis import RedisError
 
 from app.core import config_data
 from app.core.logging import setup_logging
@@ -20,10 +20,8 @@ class RedisPublisher:
         try:
             redis.rpush(queue, message)
             logging.debug(f'Message pushed to redis queue: {queue}')
-            redis.close()
-        except Exception as err:
-            logging.error(err.args)
-        except ConnectionForcedCloseError as err:
-            logging.warning(f'{err.args}')
+        except RedisError as redis_err:
+            logging.error(f'Redis error: {redis_err.args}')
         finally:
+            redis.close()
             await redis.wait_closed()

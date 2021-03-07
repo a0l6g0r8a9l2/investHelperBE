@@ -318,7 +318,7 @@ class NotificationService:
             if payload:
                 publisher = RedisPublisher()
                 message = NotificationMessage(chatId=self.notification.chatId, payload=payload)
-                await publisher.start(message=message.json())
+                await publisher.start(message=message.json(), queue=config_data.get('REDIS_NOTIFICATION_QUEUE'))
         except Exception as exc:
             logging.error(exc.args)
 
