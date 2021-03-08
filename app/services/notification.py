@@ -141,7 +141,8 @@ class NotificationService:
                     f'{self.notification.stock.ticker}{s.value}?modules=price' for s in ExchangeSuffix]
             tasks = [asyncio.create_task(asyncio.wait_for(fetch_url(url), timeout=TIME_OUT)) for url in urls]
             result_lst = [r for r in await asyncio.gather(*tasks) if r]
-            assert len(result_lst) == 1  # stock listed with same ticker on different exchanges
+            if len(result_lst) != 1:  # stock listed with same ticker on different exchanges
+                logging.warning(f'Asset with ticker {self.notification.stock.ticker} found on on different exchanges')
             response: dict = result_lst[0]
 
             symbol_for_url = response.get("quoteSummary")["result"][0]["price"].get("symbol")
