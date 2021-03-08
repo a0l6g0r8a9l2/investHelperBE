@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class RedisListener:
-    def __init__(self, host: str = cfg.get("REDIS_HOST"), port: int = cfg.get("REDIS_PORT")):
+    def __init__(self, host: str = cfg.get("REDIS_HOST"), port: str = cfg.get("REDIS_PORT")):
         self.redis_connection_string = f'redis://{host}:{port}/0'
 
     async def start(self, bot: Bot, queue: str = 'notification:stock:price:received'):
