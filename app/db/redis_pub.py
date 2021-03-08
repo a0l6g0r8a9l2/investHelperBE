@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class RedisPublisher:
-    def __init__(self, host: str = config_data.get("REDIS_HOST"), port: int = config_data.get("REDIS_PORT")):
+    def __init__(self, host: str = config_data.get("REDIS_HOST"), port: str = config_data.get("REDIS_PORT")):
         self.redis_connection_string = f'redis://{host}:{port}/0'
 
     async def start(self, message: NotificationMessage, queue: str = 'notification:stock:price:received'):

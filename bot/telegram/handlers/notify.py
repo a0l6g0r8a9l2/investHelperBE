@@ -9,6 +9,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.core.exceptions import MakeRequestError
 from bot.api.notification import NotificationService
+from bot.telegram.utils import MarkdownFormatter
 
 available_actions = ["Buy", "Sell"]
 
@@ -21,6 +22,14 @@ available_end_notification = {"m": ["5m", "10m", "30m"],
                               "d": ["1d", "3d", "5d", "7d"]}
 
 
+def header(step: int) -> str:
+    return MarkdownFormatter.italic(f'Шаг {step} из 6..') + '\n\n'
+
+
+def full_message(step: int, msg_body: str) -> str:
+    return header(step) + msg_body
+
+
 class OrderNotification(StatesGroup):
     waiting_for_ticker = State()
     waiting_for_action = State()
@@ -31,7 +40,8 @@ class OrderNotification(StatesGroup):
 
 
 async def notify_introduce(message: types.Message):
-    await message.answer("Введите TICKER акции (_например, MOEX_):", parse_mode="Markdown")
+    msg_body = "Введите TICKER акции (" + MarkdownFormatter.italic("например, MOEX") + "):"
+    await message.answer(full_message(1, msg_body), parse_mode="Markdown")
     logging.debug(f'Log from {notify_introduce}: {message.text}')
     await OrderNotification.waiting_for_ticker.set()
 
@@ -39,13 +49,15 @@ async def notify_introduce(message: types.Message):
 async def notify_waiting_for_ticker(message: types.Message, state: FSMContext):
     logging.debug(f'Log from {notify_waiting_for_ticker} {message.text}')
     if not message.text.lower():
-        await message.reply("Пожалуйста, ведите TICKER акции (_например, SBER_):")
+        msg_body = "Введите TICKER акции (" + MarkdownFormatter.italic("например, SBER") + "):"
+        await message.reply(full_message(1, msg_body))
         return
     await state.update_data(ticker=message.text)
     await OrderNotification.next()
     actions_keyboard = InlineKeyboardMarkup(row_width=3)
     actions_keyboard.row(*[InlineKeyboardButton(i, callback_data=i) for i in available_actions])
-    await message.answer("Теперь выберите действие, при достижении цены:", parse_mode="Markdown",
+    msg_body = "Теперь выберите действие, при достижении цены:"
+    await message.answer(full_message(2, msg_body), parse_mode="Markdown",
                          reply_markup=actions_keyboard)
 
 
@@ -54,21 +66,23 @@ async def notify_waiting_for_action(callback_query: types.CallbackQuery, state: 
     await state.update_data(action=callback_query.data)
     await OrderNotification.next()
     logging.debug(f'Log from {notify_waiting_for_action}: {callback_query.message.text}')
-    # await callback_query.answer(callback_query.id)
-    await callback_query.message.answer("Теперь выберите ожидаемую цену (_например, 200.5_):", parse_mode="Markdown")
+    msg_body = "Теперь выберите ожидаемую цену (" + MarkdownFormatter.italic("например, 200.5") + "):"
+    await callback_query.message.answer(full_message(3, msg_body), parse_mode="Markdown")
 
 
 async def notify_waiting_for_target_price(message: types.Message, state: FSMContext):
     logging.debug(f'Log from {notify_waiting_for_target_price}: {message.text}')
     if not message.text:
-        await message.reply("Пожалуйста, введите ожидаемую цену (_например, 200.5_):", parse_mode="Markdown")
+        msg_body = "Теперь выберите ожидаемую цену (" + MarkdownFormatter.italic("например, 200.5") + "):"
+        await message.reply(full_message(3, msg_body), parse_mode="Markdown")
         return
     await state.update_data(price=message.text.lower())
     await OrderNotification.next()
     end_notification_keyboard = InlineKeyboardMarkup(row_width=3)
     for names in available_end_notification.values():
         end_notification_keyboard.row(*[InlineKeyboardButton(i, callback_data=i) for i in names])
-    await message.answer("Теперь выберите как долго отслеживать цену (_m - мин., h - часы, d - дни., _):",
+    msg_body = "Теперь выберите как долго отслеживать цену (" + MarkdownFormatter.italic("m - мин., h - часы, d - дни.") + "):"
+    await message.answer(full_message(4, msg_body),
                          parse_mode="Markdown", reply_markup=end_notification_keyboard)
 
 
@@ -80,18 +94,19 @@ async def notify_waiting_for_end_notification(callback_query: types.CallbackQuer
     delay_keyboard = InlineKeyboardMarkup(row_width=3)
     delay_keyboard.row(*[InlineKeyboardButton(i, callback_data=i)
                          for i in available_delay.get(callback_query.data[-1])])
-    await callback_query.message.answer("Теперь выберите с какой периодчностью отслеживать цену "
-                                        "(_s - сек., m - мин., h - часы_):",
+    msg_body = "Теперь выберите с какой периодчностью отслеживать цену (" + \
+               MarkdownFormatter.italic("s - сек., m - мин., h - часы") + "):"
+    await callback_query.message.answer(full_message(5, msg_body),
                                         parse_mode="Markdown", reply_markup=delay_keyboard)
 
 
 async def notify_waiting_for_delay(callback_query: types.CallbackQuery, state: FSMContext):
     logging.debug(f'Log from {notify_waiting_for_delay}: {callback_query.data}')
+    msg_body = "Можете ввести описание события, которое произойдет по достижению цены (" + \
+               MarkdownFormatter.italic("Например: Цена достигла месячного минимума!") + "):"
     await state.update_data(delay=callback_query.data)
     await OrderNotification.next()
-    await callback_query.message.answer("Можете ввести описание события, которое произойдет "
-                                        "по достижению цены "
-                                        "(_Например: Цена достигла месячного минимума!_):",
+    await callback_query.message.answer(full_message(6, msg_body),
                                         parse_mode="Markdown")
 
 
@@ -103,9 +118,9 @@ async def notify_waiting_for_event(message: types.Message, state: FSMContext):
         data['chatId'] = message.from_user.id
         asyncio.create_task(NotificationService().create_notification(tg_notification=data))
         logging.debug(f'Log from {notify_waiting_for_event}: {data}')
-    except (MakeRequestError, httpx.ConnectError) as err:
-        await message.answer(f'Не удалось создать уведомление.\n'
-                             f'Пожалуйста, попробуйте позднее...')
+    except Exception as err:
+        err_msg = MarkdownFormatter.bold("Не удалось создать шедулер.") + '\n' + 'Пожалуйста, попробуйте позднее...'
+        await message.answer(err_msg)
         logging.error(f'Error for {message.from_user.id} with args: {err.args}')
 
 

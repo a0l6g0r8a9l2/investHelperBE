@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 async def set_commands(tg_bot: Bot):
     commands = [
-        BotCommand(command="/notify", description="Поставить уведомление об изменении цены акции")
+        BotCommand(command="/notify", description="Поставить уведомление/шедулер об изменении цены акции")
     ]
     await tg_bot.set_my_commands(commands)
 

@@ -1,14 +1,18 @@
 import os
 import sys
+import logging
 from logging import getLogger
 
+from bot.core.logging import setup_logging
+
+setup_logging()
 logger = getLogger(__name__)
 
 
 def load_config():
     try:
         config_env = str(os.environ.get('BOT_ENV'))
-        logger.debug(f'Loaded config {config_env} - OK')
+        logging.debug(f'Loaded config {config_env} - OK')
         if config_env != 'PROD':
             from bot.core.settings import info
             return info
@@ -26,5 +30,5 @@ def load_config():
             }
             return info
     except (TypeError, ValueError, ImportError) as err:
-        logger.error(f'Invalid config! {err.args}')
+        logging.error(f'Invalid config! {err.args}')
         sys.exit(1)
