@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, unique
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, Field
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_503_SERVICE_UNAVAILABLE
@@ -13,6 +13,12 @@ class ActionsOnExchange(str, Enum):
     sell = 'Sell'
 
 
+@unique
+class Board(str, Enum):
+    TQCB = 'Т+: Облигации - безадресные'
+    TQOB = 'Т+: Гособлигации - безадресные'
+
+
 class Message(BaseModel):
     message: str
 
@@ -21,6 +27,51 @@ responses = {
     HTTP_404_NOT_FOUND: {"model": Message},
     HTTP_503_SERVICE_UNAVAILABLE: {"model": Message}
 }
+
+
+class BondFilter(BaseModel):
+    cb_key_rate: float = Field(4.5,
+                               gt=-1,
+                               le=20,
+                               description="Ключевая ставка ЦБ",
+                               example=4.5)
+    min_percent_price: float = Field(95,
+                                     gt=50,
+                                     le=200,
+                                     description="Минимальная цена облигации в % от номинала",
+                                     example=95.5)
+    max_percent_price: float = Field(105,
+                                     gt=50,
+                                     le=200,
+                                     description="Максимальная цена облигации в % от номинала",
+                                     example=105)
+    additional_rate: float = Field(1,
+                                   gt=-99,
+                                   le=99,
+                                   description="Дополнительная ставка, которая складыавется с ключеовй ставке ЦБ"
+                                               "и используется для фильтрации облигаций по размеру купона, доходности "
+                                               "и эффективной доходности",
+                                   example=1)
+    period: int = Field(365,
+                        gt=90,
+                        le=3650,
+                        description="Колличесво дней, которое планируется держать облигацию. Используется для "
+                                    "фильтрации по дате оферты/погашения",
+                        example=1)
+    boards: List[Board] = [Board.TQCB.name, Board.TQOB.name]
+    min_trade_counts: int = Field(100,
+                                  gt=1,
+                                  description="Минимальное кол-во сделок в периоде",
+                                  example=100)
+    min_trade_volume: int = Field(10000,
+                                  gt=1,
+                                  description="Минимальное объем сделок в периоде",
+                                  example=10000)
+    trade_history_period: int = Field(14,
+                                      gt=1,
+                                      le=31,
+                                      description="Период для фильтрации по кол-ву и объему сделок",
+                                      example=14)
 
 
 class StockPriceNotificationCreate(BaseModel):

@@ -1,13 +1,11 @@
 import asyncio
 import logging
 
-import httpx
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from bot.core.exceptions import MakeRequestError
 from bot.api.notification import NotificationService
 from bot.telegram.utils import MarkdownFormatter
 

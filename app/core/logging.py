@@ -6,7 +6,7 @@ import yaml
 
 def setup_logging(
         default_path='core/logging.yaml',
-        default_level=logging.INFO,
+        default_level=logging.DEBUG,
         env_key='LOG_CFG'
 ):
     """
@@ -22,4 +22,4 @@ def setup_logging(
         logging.config.dictConfig(config)
         return config
     else:
-        logging.basicConfig(level=default_level)
+        logging.basicConfig(level=default_level, format="%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s")
