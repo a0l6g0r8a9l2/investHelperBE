@@ -7,11 +7,14 @@ from typing import List, Optional, Dict, Any
 import apimoex
 import pandas as pd
 import requests
+from fastapi import HTTPException
+from pydantic import ValidationError
+from starlette import status
 
 from app.core.logging import setup_logging
 # сетап конфиг и логгер
 from app.db.redis_pub import Redis
-from app.models.models import BondFilter
+from app.models.models import BondFilter, BondsRs
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -21,6 +24,7 @@ class DataFetcher:
     """
     Базовый класс для получения данных из api MOEX ISS
     """
+
     @staticmethod
     def get_data_by_reference(request_url: str, arguments: dict, reference_name: str) -> pd.DataFrame:
         """
@@ -55,7 +59,39 @@ class DataFetcher:
     @staticmethod
     def to_json(data: pd.DataFrame) -> Optional[str]:
         data = data.reset_index()
+        data.fillna(value=0, inplace=True)
+        data.rename(columns={"SECID": "isin",
+                             "SECNAME": "name",
+                             "COUPONVALUE": "couponAmount",
+                             "ACCRUEDINT": "accumulatedCouponYield",
+                             "COUPONPERIOD": "couponPeriod",
+                             "COUPONPERCENT": "couponPercent",
+                             "PRICE": "price",
+                             "NEXTCOUPON": "nextCouponDate",
+                             "EXPIREDDATE": "expiredDate",
+                             "YIELDTOOFFER": "yieldToOffer",
+                             "EFFECTIVEYIELD": "effectiveYield"
+                             }, inplace=True)
         data = data.to_json(orient="records", indent=4, date_format='iso')
+        return data
+
+    @staticmethod
+    def to_dict(data: pd.DataFrame) -> List[dict]:
+        data = data.reset_index()
+        data.fillna(value=0, inplace=True)
+        data.rename(columns={"SECID": "isin",
+                             "SECNAME": "name",
+                             "COUPONVALUE": "couponAmount",
+                             "ACCRUEDINT": "accumulatedCouponYield",
+                             "COUPONPERIOD": "couponPeriod",
+                             "COUPONPERCENT": "couponPercent",
+                             "PRICE": "price",
+                             "NEXTCOUPON": "nextCouponDate",
+                             "EXPIREDDATE": "expiredDate",
+                             "YIELDTOOFFER": "yieldToOffer",
+                             "EFFECTIVEYIELD": "effectiveYield"
+                             }, inplace=True)
+        data = data.to_dict(orient="records")
         return data
 
 
@@ -234,14 +270,16 @@ class Bonds(GetAsset):
         self.data_fetcher = BondsDataFetcher(bonds_filter=self.bonds_filter)
         self.history_data = BondsHistoryData(bonds_filter=self.bonds_filter)
 
-    async def list(self) -> Optional[List[Dict]]:
+    async def list(self) -> str:
         try:
             redis = Redis()
             cached_data = await redis.get_cached()
             if cached_data:
                 logging.debug(f'Returning data from cache..')
                 logging.debug(f'Cached data: {cached_data}')
-                return cached_data
+                model = BondsRs.parse_raw(cached_data)
+                logging.debug(f'Model {model}')
+                return model
             else:
                 logging.debug(f'No cache data. Getting from exchange..')
                 raw_data = self.data_fetcher.fetch_raw(self.bonds_filter.boards)
@@ -252,23 +290,14 @@ class Bonds(GetAsset):
                 logging.debug(f'Enrich history data')
                 filtered_data = self.history_data.apply_filter(enriched_history_data)
                 logging.debug(f'Apply second filter')
-                data_to_cache = self.data_fetcher.to_json(filtered_data)
+                data_to_model = self.data_fetcher.to_dict(filtered_data)
+                model = BondsRs.parse_obj(data_to_model)
+                data_to_cache = model.json()
                 logging.debug(f'Json data is: {data_to_cache}')
                 cache_key = await self.data_fetcher.to_cache(data_to_cache)
                 logging.debug(f'Data has been cached to {cache_key}')
-                return data_to_cache
+                return model
+        except (ValueError, ValidationError) as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as err:
             logging.error(err.args)
-
-
-async def all_process():
-    try:
-        _filter = BondFilter()
-        bonds = Bonds(bonds_filter=_filter)
-        bonds_list = await bonds.list()
-        return bonds_list
-    except Exception as err:
-        logging.error(err.args)
-
-
-asyncio.run(all_process())

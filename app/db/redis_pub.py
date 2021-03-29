@@ -27,12 +27,11 @@ class Redis:
             await redis.wait_closed()
 
     async def save_cache(self, message: str,
-                         collection_key: str = 'notification:bonds:default:received',
+                         collection_key: str = 'notification:bonds:default6:received',
                          ttl_per_sec: int = 60 * 60 * 24):
         redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
         try:
-            ttl = ttl_per_sec * 100
-            await redis.psetex(key=collection_key, milliseconds=ttl, value=message)
+            await redis.setex(key=collection_key, seconds=ttl_per_sec, value=message)
             logging.debug(f'Message saved to redis key: {collection_key}, ttl: {ttl_per_sec} sec')
             return collection_key
         except RedisError as redis_err:
@@ -41,7 +40,7 @@ class Redis:
             redis.close()
             await redis.wait_closed()
 
-    async def get_cached(self, collection_key: str = 'notification:bonds:default:received'):
+    async def get_cached(self, collection_key: str = 'notification:bonds:default6:received'):
         redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
         try:
             message = await redis.get(key=collection_key, encoding='utf-8')
