@@ -5,9 +5,8 @@ import sys
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, Path, HTTPException
+from fastapi import FastAPI, Path
 from fastapi.responses import RedirectResponse
-from starlette import status
 from starlette.responses import JSONResponse
 from starlette.status import HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR, \
     HTTP_404_NOT_FOUND, HTTP_200_OK, HTTP_201_CREATED, HTTP_503_SERVICE_UNAVAILABLE

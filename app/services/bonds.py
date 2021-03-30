@@ -12,10 +12,10 @@ from pydantic import ValidationError
 from starlette import status
 
 from app.core.logging import setup_logging
-# сетап конфиг и логгер
 from app.db.redis_pub import Redis
 from app.models.models import BondFilter, BondsRs
 
+# сетап конфиг и логгер
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -270,13 +270,12 @@ class Bonds(GetAsset):
         self.data_fetcher = BondsDataFetcher(bonds_filter=self.bonds_filter)
         self.history_data = BondsHistoryData(bonds_filter=self.bonds_filter)
 
-    async def list(self) -> str:
+    async def list(self) -> BondsRs:
         try:
             redis = Redis()
             cached_data = await redis.get_cached()
             if cached_data:
                 logging.debug(f'Returning data from cache..')
-                logging.debug(f'Cached data: {cached_data}')
                 model = BondsRs.parse_raw(cached_data)
                 logging.debug(f'Model {model}')
                 return model

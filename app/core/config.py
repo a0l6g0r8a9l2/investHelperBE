@@ -31,7 +31,9 @@ def load_config():
                 "TIME_OUT": int(os.environ.get('TIME_OUT')),
                 "REDIS_HOST": str(os.environ.get('REDIS_HOST')),
                 "REDIS_PORT": str(os.environ.get('REDIS_PORT')),
-                "REDIS_NOTIFICATION_QUEUE": str(os.environ.get('REDIS_NOTIFICATION_QUEUE'))
+                "REDIS_NOTIFICATION_QUEUE": str(os.environ.get('REDIS_NOTIFICATION_QUEUE')),
+                "REDIS_BONDS_LIST_CACHE_KEY": str(os.environ.get('REDIS_BONDS_LIST_CACHE_KEY')),
+                "REDIS_BONDS_LIST_CACHE_TTL": int(os.environ.get('REDIS_BONDS_LIST_CACHE_TTL'))
             }
             return info
     except (TypeError, ValueError, ImportError) as err:
