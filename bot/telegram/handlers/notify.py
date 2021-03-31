@@ -1,13 +1,11 @@
 import asyncio
 import logging
 
-import httpx
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from bot.core.exceptions import MakeRequestError
 from bot.api.notification import NotificationService
 from bot.telegram.utils import MarkdownFormatter
 
@@ -23,7 +21,7 @@ available_end_notification = {"m": ["5m", "10m", "30m"],
 
 
 def header(step: int) -> str:
-    return MarkdownFormatter.italic(f'Шаг {step} из 6..') + '\n\n'
+    return MarkdownFormatter.italic(f'Шаг {step} из 6.') + '\n\n'
 
 
 def full_message(step: int, msg_body: str) -> str:

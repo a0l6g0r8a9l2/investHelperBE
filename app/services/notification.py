@@ -15,7 +15,7 @@ from transitions.extensions.asyncio import AsyncMachine
 from app.core import config_data
 from app.core.logging import setup_logging
 from app.db.mongo import MongodbService
-from app.db.redis_pub import RedisPublisher
+from app.db.redis_pub import Redis
 from app.models.models import ActionsOnExchange, Stock, ExchangeSuffix, NotificationPayload, NotificationMessage
 
 setup_logging()
@@ -317,9 +317,9 @@ class NotificationService:
                                               event=self.notification.event,
                                               currentPrice=self.notification.stock.price)
             if payload:
-                publisher = RedisPublisher()
+                publisher = Redis()
                 message = NotificationMessage(chatId=self.notification.chatId, payload=payload)
-                await publisher.start(message=message.json(), queue=config_data.get('REDIS_NOTIFICATION_QUEUE'))
+                await publisher.start_publish(message=message.json(), queue=config_data.get('REDIS_NOTIFICATION_QUEUE'))
         except Exception as exc:
             logging.error(exc.args)
 
@@ -328,7 +328,7 @@ async def fetch_url(url: str):
     """
     Get response from API by url
     :param url: url
-    :return: dict with data from API
+    :return: dict with data.csv from API
     """
     user_agent_lst = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                       'Chrome/88.0.4324.104 Safari/537.36',

@@ -23,10 +23,13 @@ services:
       - CHAT_ID=
       - REDIS_PORT=6379
       - REDIS_HOST=redis
+      - REDIS_BONDS_LIST_CACHE_KEY=notification:bonds:default6:received
+      - REDIS_BONDS_LIST_CACHE_TTL=86400
       - REDIS_NOTIFICATION_QUEUE=notification:stock:price:received
       - TIME_OUT=3
     depends_on:
       - mongodb
+      - redis
 
   bot:
     build: ./bot

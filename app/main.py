@@ -13,9 +13,10 @@ from starlette.status import HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST, HTTP_500
 from transitions import MachineError
 
 from app.core.logging import setup_logging
-from app.models.models import StockPriceNotificationRead, StockPriceNotificationCreate, responses, Stock
+from app.models.models import StockPriceNotificationRead, StockPriceNotificationCreate, responses, Stock, \
+    BondFilter, BondsRs
+from app.services.bonds import Bonds
 from app.services.notification import Notification, NotificationService
-
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -100,6 +101,26 @@ async def get_notification_stock_price_by_id(id: str = Path(...,
         return JSONResponse(status_code=HTTP_503_SERVICE_UNAVAILABLE,
                             content={"message": "Connection refused"},
                             headers={"Retry-After": 30})
+    except Exception as e_err:
+        tb = sys.exc_info()[2]
+        logging.error(e_err.args, e_err.with_traceback(tb))
+        return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+                            content={"message": "Internal Server Error"})
+
+
+@app.get("/bonds",
+         response_model_exclude_none=True,
+         status_code=HTTP_200_OK,
+         response_model=BondsRs,
+         response_model_exclude_unset=True,
+         response_model_by_alias=False,
+         tags=["bonds"])
+async def get_bonds():
+    try:
+        default_filter = BondFilter()
+        bonds = Bonds(bonds_filter=default_filter)
+        bonds_list = await bonds.list()
+        return bonds_list
     except Exception as e_err:
         tb = sys.exc_info()[2]
         logging.error(e_err.args, e_err.with_traceback(tb))

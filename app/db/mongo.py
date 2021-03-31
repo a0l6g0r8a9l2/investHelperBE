@@ -16,6 +16,9 @@ class MongodbService:
     """
     Class for async CRUD document in Mongo
     """
+    _instance = None
+    _client = None
+    _db = None
 
     def __init__(self, host: str = config_data.get("MONGO_HOST"), port: int = config_data.get("MONGO_PORT"),
                  db: str = config_data.get("MONGO_NAME"), collection: str = config_data.get("MONGO_COLLECTION")):
@@ -80,6 +83,15 @@ class MongodbService:
                 await self._collection.delete_many({})
                 n1 = await self._collection.count_documents({}, session=s)
                 logging.debug(f'After deleting {n1} documents')
+        except PyMongoError as err:
+            logging.error(err.args)
+
+    async def get_all_collection_items(self) -> List[dict]:
+        try:
+            async with await self._client.start_session() as s:
+                cursor = self._collection.find({}, session=s).sort('i')
+                documents = await cursor.to_list(length=1000)
+                return documents
         except PyMongoError as err:
             logging.error(err.args)
 
