@@ -5,7 +5,7 @@ from typing import Optional
 
 import httpx
 
-from bot.core import cfg
+from bot.api.base import ApiRequest
 from bot.core.exceptions import PrepareRequestError, MakeRequestError
 from bot.core.logging import setup_logging
 
@@ -13,15 +13,8 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-class NotificationService:
-    headers = {
-        'accept': 'application/json',
-        'Content-Type': 'application/json',
-    }
-    host = cfg.get("NOTIFICATION_SERVICE_HOST")
-    port = cfg.get("NOTIFICATION_SERVICE_PORT")
+class NotificationService(ApiRequest):
     base_path = '/stocks/notification/'
-    url = f'http://{host}:{port}{base_path}'
 
     async def create_notification(self, tg_notification: dict,
                                   url: Optional[str] = None,

@@ -52,12 +52,12 @@ class BondFilter(BaseModel):
                                                "и используется для фильтрации облигаций по размеру купона, доходности "
                                                "и эффективной доходности",
                                    example=1)
-    period: int = Field(365,
+    period: int = Field(547,
                         gt=90,
                         le=3650,
                         description="Колличесво дней, которое планируется держать облигацию. Используется для "
                                     "фильтрации по дате оферты/погашения",
-                        example=1)
+                        example=365)
     boards: List[Board] = [Board.TQCB.name, Board.TQOB.name]
     min_trade_counts: int = Field(100,
                                   gt=1,

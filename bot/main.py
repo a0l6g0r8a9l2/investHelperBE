@@ -11,6 +11,7 @@ from bot.api.redis_sub import RedisListener
 from bot.core import cfg
 from bot.core.logging import setup_logging
 from bot.core.middlewares import AccessMiddleware
+from bot.telegram.handlers.bonds import register_handlers_bonds
 from bot.telegram.handlers.notify import register_handlers_notify
 
 setup_logging()
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 async def set_commands(tg_bot: Bot):
     commands = [
-        BotCommand(command="/notify", description="Поставить уведомление/шедулер об изменении цены акции")
+        BotCommand(command="/notify", description="Поставить уведомление/шедулер об изменении цены акции"),
+        BotCommand(command="/bonds", description="Получить отфильтрованный список облигаций")
     ]
     await tg_bot.set_my_commands(commands)
 
@@ -32,6 +34,7 @@ async def main():
     dp.middleware.setup(AccessMiddleware(cfg.get("TELEGRAM_ACCESS_ID")))
 
     register_handlers_notify(dp)
+    register_handlers_bonds(dp)
 
     await set_commands(bot)
 
