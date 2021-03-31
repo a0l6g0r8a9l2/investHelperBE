@@ -3,7 +3,7 @@ import logging
 import aioredis
 from aioredis import RedisError
 
-from app.core import config_data
+from app.core import settings
 from app.core.logging import setup_logging
 from app.models.models import NotificationMessage
 
@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class Redis:
-    def __init__(self, host: str = config_data.get("REDIS_HOST"), port: str = config_data.get("REDIS_PORT")):
+    def __init__(self, host: str = settings.redis_host, port: str = settings.redis_port):
         self.redis_connection_string = f'redis://{host}:{port}/0'
 
     async def start_publish(self,
                             message: NotificationMessage,
-                            queue: str = config_data.get("REDIS_NOTIFICATION_QUEUE")):
+                            queue: str = settings.redis_notification_queue):
         redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
         try:
             redis.rpush(queue, message)
@@ -30,8 +30,8 @@ class Redis:
 
     async def save_cache(self,
                          message: str,
-                         collection_key: str = config_data.get("REDIS_BONDS_LIST_CACHE_KEY"),
-                         ttl_per_sec: int = config_data.get("REDIS_BONDS_LIST_CACHE_TTL")):
+                         collection_key: str = settings.redis_bonds_list_cache_key,
+                         ttl_per_sec: int = settings.redis_bonds_list_cache_ttl):
         redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
         try:
             await redis.setex(key=collection_key, seconds=ttl_per_sec, value=message)
@@ -44,7 +44,7 @@ class Redis:
             await redis.wait_closed()
 
     async def get_cached(self,
-                         collection_key: str = config_data.get("REDIS_BONDS_LIST_CACHE_KEY")):
+                         collection_key: str = settings.redis_bonds_list_cache_key):
         redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
         try:
             message = await redis.get(key=collection_key, encoding='utf-8')

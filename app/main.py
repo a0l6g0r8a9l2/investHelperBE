@@ -1,29 +1,27 @@
-#!/usr/bin/venv python
-# -*- coding: utf-8 -*
-import logging
-import sys
-
-import httpx
 import uvicorn
-from fastapi import FastAPI, Path
-from fastapi.responses import RedirectResponse
-from starlette.responses import JSONResponse
-from starlette.status import HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR, \
-    HTTP_404_NOT_FOUND, HTTP_200_OK, HTTP_201_CREATED, HTTP_503_SERVICE_UNAVAILABLE
-from transitions import MachineError
+from fastapi import FastAPI
+from starlette.responses import RedirectResponse
 
+from app.core import settings
 from app.core.logging import setup_logging
-from app.models.models import StockPriceNotificationRead, StockPriceNotificationCreate, responses, Stock, \
-    BondFilter, BondsRs
-from app.services.bonds import Bonds
-from app.services.notification import Notification, NotificationService
+from app import api
 
-setup_logging()
-logger = logging.getLogger(__name__)
+tags_metadata = [
+    {
+        'name': 'bonds',
+        'description': 'Получение списка отфильтрованных облигаций',
+    },
+    {
+        'name': 'notifications',
+        'description': 'Создание уведомления об изменении цены акции',
+    },
+]
 
-app = FastAPI(title="InvestHelper",
-              description="This is API for InvestHelperBot",
-              version="0.1.1")
+app = FastAPI(title="InvestAssistance",
+              description="This is API for InvestAssistance",
+              version="0.2.1")
+
+app.include_router(api.router)
 
 
 @app.get("/", include_in_schema=False)
@@ -31,135 +29,11 @@ def docs_redirect():
     return RedirectResponse(f"{app.root_path}/docs")
 
 
-@app.post("/stocks/notification/",
-          response_model_exclude_none=True,
-          status_code=HTTP_201_CREATED,
-          responses={**responses},
-          response_model=StockPriceNotificationRead,
-          tags=["stocks"])
-async def add_notification_stock_price(notification_request: StockPriceNotificationCreate):
-    """
-    Контролер для создания уведомлений о изменении цены акции
-    """
-    try:
-        notification_request.dict(exclude_unset=True)
-        logging.debug(notification_request)
-        stock = Stock(ticker=notification_request.ticker.upper())
-        notification_model = Notification(stock=stock,
-                                          targetPrice=notification_request.targetPrice,
-                                          action=notification_request.action,
-                                          event=notification_request.event,
-                                          delay=notification_request.delay,
-                                          endNotification=notification_request.endNotification,
-                                          chatId=notification_request.chatId)
-        service = NotificationService(notification_model)
-        await service.checking_exchange()  # todo: pretty name for first state
-        notification = await service.get_notification(notification_model._id)
-        response = StockPriceNotificationRead(**notification)
-        return response
-    except (KeyError, ValueError, AttributeError, MachineError) as v_err:
-        logging.error(v_err.args)
-        return JSONResponse(status_code=HTTP_400_BAD_REQUEST, content={"message": f"Error with value {v_err}"})
-    except (TimeoutError, httpx.HTTPError) as t_err:
-        tb = sys.exc_info()[2]
-        logging.error(t_err.args, t_err.with_traceback(tb))
-        return JSONResponse(status_code=HTTP_503_SERVICE_UNAVAILABLE,
-                            content={"message": "Connection refused"},
-                            headers={"Retry-After": 30})
-    except Exception as e_err:
-        tb = sys.exc_info()[2]
-        logging.error(e_err.args, e_err.with_traceback(tb))
-        return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-                            content={"message": "Internal Server Error"})
-
-
-@app.get("/stocks/notification/{id}",
-         response_model_exclude_none=True,
-         status_code=HTTP_200_OK,
-         response_model=StockPriceNotificationRead,
-         responses={**responses},
-         tags=["stocks"])
-async def get_notification_stock_price_by_id(id: str = Path(...,
-                                                            description="notification id",
-                                                            min_length=1,
-                                                            max_length=50,
-                                                            example="5f46c2950e4f4ea916ec05ab"
-                                                            )):
-    """
-    Контролер для чтения уведомлений о изменении цены акции
-    """
-    try:
-        notification = await NotificationService.get_notification(id)
-        response = StockPriceNotificationRead(**notification)
-        return response
-    except (KeyError, ValueError, AttributeError, MachineError) as v_err:
-        logging.error(v_err.args)
-        return JSONResponse(status_code=HTTP_400_BAD_REQUEST, content={"message": f"Item '{v_err}' not found"})
-    except (TimeoutError, httpx.HTTPError) as t_err:
-        tb = sys.exc_info()[2]
-        logging.error(t_err.args, t_err.with_traceback(tb))
-        return JSONResponse(status_code=HTTP_503_SERVICE_UNAVAILABLE,
-                            content={"message": "Connection refused"},
-                            headers={"Retry-After": 30})
-    except Exception as e_err:
-        tb = sys.exc_info()[2]
-        logging.error(e_err.args, e_err.with_traceback(tb))
-        return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-                            content={"message": "Internal Server Error"})
-
-
-@app.get("/bonds",
-         response_model_exclude_none=True,
-         status_code=HTTP_200_OK,
-         response_model=BondsRs,
-         response_model_exclude_unset=True,
-         response_model_by_alias=False,
-         tags=["bonds"])
-async def get_bonds():
-    try:
-        default_filter = BondFilter()
-        bonds = Bonds(bonds_filter=default_filter)
-        bonds_list = await bonds.list()
-        return bonds_list
-    except Exception as e_err:
-        tb = sys.exc_info()[2]
-        logging.error(e_err.args, e_err.with_traceback(tb))
-        return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-                            content={"message": "Internal Server Error"})
-
-
-@app.delete("/stocks/notification/{id}",
-            response_model_exclude_none=True,
-            status_code=HTTP_204_NO_CONTENT,
-            responses={**responses},
-            tags=["stocks"])
-async def delete_notification_stock_price_by_id(id: str = Path(...,
-                                                               description="notification id",
-                                                               min_length=1,
-                                                               max_length=50,
-                                                               example="5f46c2950e4f4ea916ec05ab"
-                                                               )):
-    """
-    Контролер для удаления уведомлений о изменении цены акции
-    """
-    try:
-        await NotificationService.delete_notification(id)
-        return JSONResponse(status_code=HTTP_204_NO_CONTENT)
-    except (KeyError, ValueError, AttributeError, MachineError) as v_err:
-        logging.error(v_err.args)
-        return JSONResponse(status_code=HTTP_404_NOT_FOUND, content={"message": "Item not found"})
-    except (TimeoutError, httpx.HTTPError) as t_err:
-        tb = sys.exc_info()[2]
-        logging.error(t_err.args, t_err.with_traceback(tb))
-        return JSONResponse(status_code=HTTP_503_SERVICE_UNAVAILABLE,
-                            content={"message": "Connection refused"},
-                            headers={"Retry-After": 30})
-    except Exception as e_err:
-        tb = sys.exc_info()[2]
-        logging.error(e_err.args, e_err.with_traceback(tb))
-        return JSONResponse(status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-                            content={"message": "Internal Server Error"})
-
-
 if __name__ == '__main__':
-    uvicorn.run(app, log_config=setup_logging())
+    uvicorn.run(
+        'app.main:app',
+        host=settings.server_host,
+        port=settings.server_port,
+        reload=True,
+        log_config=setup_logging(),
+    )

@@ -1,3 +1,6 @@
-from app.core.config import load_config
+from app.core.config import Settings
 
-config_data = load_config()
+settings = Settings(
+    _env_file='.env',
+    _env_file_encoding='utf-8',
+)

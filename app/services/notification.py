@@ -12,16 +12,14 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from transitions.extensions.asyncio import AsyncMachine
 
-from app.core import config_data
 from app.core.logging import setup_logging
+from app.core import settings
 from app.db.mongo import MongodbService
 from app.db.redis_pub import Redis
 from app.models.models import ActionsOnExchange, Stock, ExchangeSuffix, NotificationPayload, NotificationMessage
 
 setup_logging()
 logger = logging.getLogger(__name__)
-
-TIME_OUT = config_data.get("TIME_OUT")
 
 
 class Notification:
@@ -45,7 +43,7 @@ class Notification:
                  action: Optional[ActionsOnExchange] = ActionsOnExchange.buy.value,
                  delay: Optional[int] = 5,
                  endNotification: Optional[datetime] = (datetime.now() + timedelta(minutes=30)),
-                 chatId: str = config_data.get("CHAT_ID")):
+                 chatId: str = settings.telegram_chat_id):
         self.stock = stock
         self.targetPrice = targetPrice
         self._id = str(uuid4())
@@ -139,7 +137,7 @@ class NotificationService:
         try:
             urls = [f'https://query1.finance.yahoo.com/v10/finance/quoteSummary/'
                     f'{self.notification.stock.ticker}{s.value}?modules=price' for s in ExchangeSuffix]
-            tasks = [asyncio.create_task(asyncio.wait_for(fetch_url(url), timeout=TIME_OUT)) for url in urls]
+            tasks = [asyncio.create_task(asyncio.wait_for(fetch_url(url), timeout=settings.time_out)) for url in urls]
             result_lst = [r for r in await asyncio.gather(*tasks) if r]
             if len(result_lst) != 1:  # stock listed with same ticker on different exchanges
                 logging.warning(f'Asset with ticker {self.notification.stock.ticker} found on on different exchanges')
@@ -194,7 +192,7 @@ class NotificationService:
         try:
             self.loop.create_task(self.send_notification())
 
-            new_price = await asyncio.create_task(asyncio.wait_for(fetch_url(self._url), timeout=TIME_OUT))
+            new_price = await asyncio.create_task(asyncio.wait_for(fetch_url(self._url), timeout=settings.time_out))
             set_price = partial(self.set_self_attr, new_price)
             done_check = partial(self.done_check)
             cancel_check = partial(self.cancel_check)
@@ -319,7 +317,7 @@ class NotificationService:
             if payload:
                 publisher = Redis()
                 message = NotificationMessage(chatId=self.notification.chatId, payload=payload)
-                await publisher.start_publish(message=message.json(), queue=config_data.get('REDIS_NOTIFICATION_QUEUE'))
+                await publisher.start_publish(message=message.json(), queue=settings.redis_notification_queue)
         except Exception as exc:
             logging.error(exc.args)
 

@@ -3,6 +3,7 @@
 docker_faq.md
 .idea
 app/core/errors.log
+app/.env
 app/core/info.log
 app/core/settings.py
 app/.pytest_cache
