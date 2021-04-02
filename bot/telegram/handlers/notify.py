@@ -7,6 +7,7 @@ from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.api.notification import NotificationService
+from bot.models.models import StockPriceNotificationCreateApiRq, StockPriceNotificationCreateBot
 from bot.telegram.utils import MarkdownFormatter
 
 available_actions = ["Buy", "Sell"]
@@ -74,19 +75,20 @@ async def notify_waiting_for_target_price(message: types.Message, state: FSMCont
         msg_body = "Теперь выберите ожидаемую цену (" + MarkdownFormatter.italic("например, 200.5") + "):"
         await message.reply(full_message(3, msg_body), parse_mode="Markdown")
         return
-    await state.update_data(price=message.text.lower())
+    await state.update_data(targetPrice=message.text.lower())
     await OrderNotification.next()
     end_notification_keyboard = InlineKeyboardMarkup(row_width=3)
     for names in available_end_notification.values():
         end_notification_keyboard.row(*[InlineKeyboardButton(i, callback_data=i) for i in names])
-    msg_body = "Теперь выберите как долго отслеживать цену (" + MarkdownFormatter.italic("m - мин., h - часы, d - дни.") + "):"
+    msg_body = "Теперь выберите как долго отслеживать цену (" + MarkdownFormatter.italic(
+        "m - мин., h - часы, d - дни.") + "):"
     await message.answer(full_message(4, msg_body),
                          parse_mode="Markdown", reply_markup=end_notification_keyboard)
 
 
 async def notify_waiting_for_end_notification(callback_query: types.CallbackQuery, state: FSMContext):
     logging.debug(f'Log from {notify_waiting_for_end_notification}: {callback_query.message.text}')
-    await state.update_data(end_notification=callback_query.data)
+    await state.update_data(endNotification=callback_query.data)
     await OrderNotification.next()
     logging.debug(f'Log from {notify_waiting_for_end_notification}: {callback_query.message.text}')
     delay_keyboard = InlineKeyboardMarkup(row_width=3)
@@ -113,13 +115,18 @@ async def notify_waiting_for_event(message: types.Message, state: FSMContext):
         logging.debug(f'Log from {notify_waiting_for_event}: {message.text}')
         await state.update_data(event=message.text)
         data = await state.get_data()
-        data['chatId'] = message.from_user.id
-        asyncio.create_task(NotificationService().create_notification(tg_notification=data))
-        logging.debug(f'Log from {notify_waiting_for_event}: {data}')
+        logging.debug(f'Getting data from storage in notify: {data.items()}')
+        user_typed_data = StockPriceNotificationCreateBot(chatId=message.from_user.id,
+                                                          **data)
+        asyncio.create_task(NotificationService(notification_user_data=user_typed_data)
+                            .create_notification())
+        logging.debug(f'Log from {notify_waiting_for_event}: user_typed_data: {user_typed_data}')
     except Exception as err:
         err_msg = MarkdownFormatter.bold("Не удалось создать шедулер.") + '\n' + 'Пожалуйста, попробуйте позднее...'
         await message.answer(err_msg)
         logging.error(f'Error for {message.from_user.id} with args: {err.args}')
+    finally:
+        await state.finish()
 
 
 def register_handlers_notify(dp: Dispatcher):

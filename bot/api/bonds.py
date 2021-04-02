@@ -1,7 +1,6 @@
-import asyncio
 import json
 import logging
-from typing import List, Union, Dict, Optional
+from typing import List, Union, Dict
 
 import httpx
 from httpx import Response
@@ -17,13 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class BondsService(ApiRequest):
-    base_path = '/bonds'
+    base_path = '/bonds/'
 
     async def raw_bonds_list(self) -> Response:
         async with httpx.AsyncClient() as client:
+            logging.debug(f'Log from {self.__class__.__name__}: url: {self.url}')
             response = await client.get(self.url, headers=self.headers)
-            logging.debug(
-                f'Log from {self.__class__.__name__}: url: {self.url}, status: {response.status_code}')
             if response.status_code != 200:
                 raise MakeRequestError(f'HTTP error with: {response.status_code}')
             else:

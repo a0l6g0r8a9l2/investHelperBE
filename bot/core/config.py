@@ -1,34 +1,12 @@
-import os
-import sys
-import logging
-from logging import getLogger
-
-from bot.core.logging import setup_logging
-
-setup_logging()
-logger = getLogger(__name__)
+from pydantic import BaseSettings
 
 
-def load_config():
-    try:
-        config_env = str(os.environ.get('BOT_ENV'))
-        logging.debug(f'Loaded config {config_env} - OK')
-        if config_env != 'PROD':
-            from bot.core.settings import info
-            return info
-        else:
-            info = {
-                "TELEGRAM_API_TOKEN": str(os.environ.get('TELEGRAM_API_TOKEN')),
-                "TELEGRAM_ACCESS_ID": os.environ.get('TELEGRAM_ACCESS_ID'),
-                "NOTIFICATION_SERVICE_HOST": str(os.environ.get('NOTIFICATION_SERVICE_HOST')),
-                "NOTIFICATION_SERVICE_PORT": str(os.environ.get('NOTIFICATION_SERVICE_PORT')),
-                "BOT_ENV": str(os.environ.get('BOT_ENV')),
-                "TIME_OUT": int(os.environ.get('TIME_OUT')),
-                "REDIS_HOST": str(os.environ.get('REDIS_HOST')),
-                "REDIS_PORT": str(os.environ.get('REDIS_PORT')),
-                "REDIS_NOTIFICATION_QUEUE": str(os.environ.get('REDIS_NOTIFICATION_QUEUE'))
-            }
-            return info
-    except (TypeError, ValueError, ImportError) as err:
-        logging.error(f'Invalid config! {err.args}')
-        sys.exit(1)
+class Settings(BaseSettings):
+    server_host: str = '127.0.0.1'
+    server_port: int = 8000
+    telegram_token: str
+    telegram_chat_id: str
+    time_out: int = 5
+    redis_host: str = '127.0.0.1'
+    redis_port: int = 6379
+    redis_notification_queue: str = 'notification:stock:price:received'

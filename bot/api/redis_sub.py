@@ -8,7 +8,7 @@ from aiogram.utils.exceptions import TelegramAPIError
 from aioredis import RedisError
 from pydantic import ValidationError
 
-from bot.core import cfg
+from bot.core import settings
 from bot.core.logging import setup_logging
 from bot.models.models import NotificationMessage
 from bot.telegram.utils import MarkdownMessageBuilder
@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 class RedisListener:
-    def __init__(self, host: str = cfg.get("REDIS_HOST"), port: str = cfg.get("REDIS_PORT")):
+    def __init__(self, host: str = settings.redis_host, port: int = settings.redis_port):
         self.redis_connection_string = f'redis://{host}:{port}/0'
 
-    async def start(self, bot: Bot, queue: str = cfg.get("REDIS_NOTIFICATION_QUEUE")):
+    async def start(self, bot: Bot, queue: str = settings.redis_notification_queue):
         try:
             redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
             while True:

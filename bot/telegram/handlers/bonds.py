@@ -60,6 +60,7 @@ async def bonds_introduce(message: types.Message, state: FSMContext):
 
 async def bonds_next_item(callback_query: types.CallbackQuery, state: FSMContext):
     storage = await state.get_data()
+    logging.debug(f'Getting data from storage in bonds: {storage.items()}')
     bonds_list = storage['bonds_list']
     count_items = int(storage['count_items'])
     current_item_num = len(bonds_list)
@@ -73,6 +74,7 @@ async def bonds_next_item(callback_query: types.CallbackQuery, state: FSMContext
         msg = f"{Mf.bold('На сегодня это весь список подобранных облигаций!')}\n" \
                    f"Список обновляется каждый день."
         await callback_query.message.answer(msg, parse_mode="Markdown")
+        await state.finish()
 
 
 def register_handlers_bonds(dp: Dispatcher):

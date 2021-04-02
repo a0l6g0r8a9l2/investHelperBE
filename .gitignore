@@ -12,3 +12,4 @@ bot/core/errors.log
 bot/core/info.log
 docker-compose.yml
 .pytest_cache
+/bot/.env

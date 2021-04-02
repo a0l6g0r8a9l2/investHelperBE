@@ -1,10 +1,12 @@
+import logging
+
 import uvicorn
 from fastapi import FastAPI
 from starlette.responses import RedirectResponse
 
+from app import api
 from app.core import settings
 from app.core.logging import setup_logging
-from app import api
 
 tags_metadata = [
     {
@@ -16,6 +18,9 @@ tags_metadata = [
         'description': 'Создание уведомления об изменении цены акции',
     },
 ]
+
+log_cfg = setup_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="InvestAssistance",
               description="This is API for InvestAssistance",
@@ -35,5 +40,5 @@ if __name__ == '__main__':
         host=settings.server_host,
         port=settings.server_port,
         reload=True,
-        log_config=setup_logging(),
+        log_config=log_cfg
     )

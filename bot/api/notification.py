@@ -4,71 +4,65 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import httpx
+from pydantic import ValidationError
 
 from bot.api.base import ApiRequest
 from bot.core.exceptions import PrepareRequestError, MakeRequestError
 from bot.core.logging import setup_logging
+from bot.models.models import StockPriceNotificationCreateBot, StockPriceNotificationCreateApiRq
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
 class NotificationService(ApiRequest):
-    base_path = '/stocks/notification/'
+    base_path = '/notification/'
 
-    async def create_notification(self, tg_notification: dict,
-                                  url: Optional[str] = None,
-                                  headers: Optional[dict] = None) -> Optional[dict]:
+    def __init__(self, notification_user_data: StockPriceNotificationCreateBot):
+        self.notification_user_data = notification_user_data
+
+    async def create_notification(self) -> Optional[dict]:
         """
         Create notification
 
-        :param tg_notification: notification from bot
-        :param headers: headers for request
-        :param url: url
         :return: dict with data from API
         """
-        params = self._prepare_request_params(tg_notification=tg_notification)
-
-        if not headers:
-            headers = self.headers
-        if not url:
-            url = self.url
-
         try:
             async with httpx.AsyncClient() as client:
-                logging.debug(f'Log from {self.create_notification.__name__}: url: {url}')
-                response = await client.post(url, headers=headers, json=params)
+                response = await client.post(self.url, headers=self.headers, content=self.params.json())
                 logging.debug(
-                    f'Log from {self.create_notification.__name__}: url: {url}, status: {response.status_code}')
+                    f'Log from {self.create_notification.__name__}: '
+                    f'status: {response.status_code}')
                 if response.status_code != 201:
-                    raise MakeRequestError(f'HTTP error with: {response.status_code}')
+                    raise MakeRequestError(f'HTTP error with: {response.status_code}, {response.content}')
                 else:
                     response = response.json()
                     return response
         except httpx.HTTPError as exc:
-            logging.error(f'HTTP Exception - {exc}')
+            logging.error(f'Error from {__name__}: {exc}')
+
+    @property
+    def params(self) -> StockPriceNotificationCreateApiRq:
+        try:
+            bot_notification = self.notification_user_data.dict()
+            logging.debug(f'Log from {__name__}: user_data: {bot_notification}')
+
+            end_notification, delay = bot_notification['endNotification'], bot_notification['delay']
+            bot_notification['endNotification'] = self.convert_period_to_datetime(end_notification)
+            bot_notification['delay'] = self.convert_period_to_seconds(delay)
+
+            request_params = StockPriceNotificationCreateApiRq(**bot_notification)
+            return request_params
+        except (KeyError, ValueError, ValidationError) as err:
+            logging.error(f'Log from prepare_request: {err.args}')
+            raise PrepareRequestError(f'Could not prepare request from user typed data')
+
+    def convert_period_to_datetime(self, period: str) -> datetime:
+        date_time = datetime.now() + timedelta(seconds=self.convert_period_to_seconds(period))
+        return date_time
 
     @staticmethod
-    def _prepare_request_params(tg_notification: dict) -> dict:
-        try:
-            if tg_notification.get('price'):
-                tg_notification['targetPrice'] = float(tg_notification.pop('price'))
-            if tg_notification.get('end_notification').endswith('m'):
-                tg_notification['endNotification'] = str(
-                    datetime.now() + timedelta(minutes=int(tg_notification.pop('end_notification')[:-1])))
-            elif tg_notification.get('end_notification').endswith('h'):
-                tg_notification['endNotification'] = str(
-                    datetime.now() + timedelta(hours=int(tg_notification.pop('end_notification')[:-1])))
-            elif tg_notification.get('end_notification').endswith('d'):
-                tg_notification['endNotification'] = str(
-                    datetime.now() + timedelta(days=int(tg_notification.pop('end_notification')[:-1])))
-            if tg_notification.get('delay').endswith('s'):
-                tg_notification['delay'] = int(tg_notification.get('delay')[:-1])
-            elif tg_notification.get('delay').endswith('m'):
-                tg_notification['delay'] = int(tg_notification.get('delay')[:-1]) * 60
-            elif tg_notification.get('delay').endswith('h'):
-                tg_notification['delay'] = int(tg_notification.get('delay')[:-1]) * 60 * 60
-            return tg_notification
-        except (KeyError, ValueError) as err:
-            logging.error(f'Log from _prepare_request_params: {err.args}')
-            raise PrepareRequestError(f'Could not prepare request from data')
+    def convert_period_to_seconds(period: str) -> int:
+        converter = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+        converted_period = int(period[:-1]) * converter.get(period[-1])
+        return converted_period
