@@ -79,7 +79,7 @@ class NotificationService:
     AsyncIOScheduler - шедулер отслеживающий цену акции
 
         states - доступные состояния для AsyncMachine
-        _instances - dict с инстансами NotificationService (используется для методов класса)
+        _instances - dict с инстансами NotificationStockPriceService (используется для методов класса)
 
     """
     states = ['new', 'checking_exchange', 'price_scheduling', 'expired', 'done', 'canceled']
@@ -202,7 +202,7 @@ class NotificationService:
             self._scheduler.add_job(done_check, 'interval',
                                     seconds=self.notification.delay,
                                     id=str(self.notification._id + '_done_check'),
-                                    name='done_check')
+                                    name='is_done')
             self._scheduler.add_job(cancel_check, 'interval',
                                     seconds=self.notification.delay,
                                     id=str(self.notification._id + '_cancel_check'),

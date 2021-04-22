@@ -11,7 +11,7 @@ from starlette.status import HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST, HTTP_500
 from transitions import MachineError
 
 from app.core.logging import setup_logging
-from app.models.models import StockPriceNotificationRead, StockPriceNotificationCreate, responses, Stock
+from app.models.models import StockPriceNotificationReadRs, StockPriceNotificationCreateRq, responses, Stock
 from app.services.notification import Notification, NotificationService
 
 setup_logging()
@@ -24,9 +24,9 @@ router = APIRouter()
              response_model_exclude_none=True,
              status_code=HTTP_201_CREATED,
              responses={**responses},
-             response_model=StockPriceNotificationRead
+             response_model=StockPriceNotificationReadRs
              )
-async def add_notification_stock_price(notification_request: StockPriceNotificationCreate):
+async def add_notification_stock_price(notification_request: StockPriceNotificationCreateRq):
     """
     Контролер для создания уведомлений о изменении цены акции
     """
@@ -44,7 +44,7 @@ async def add_notification_stock_price(notification_request: StockPriceNotificat
         service = NotificationService(notification_model)
         await service.checking_exchange()  # todo: pretty name for first state
         notification = await service.get_notification(notification_model._id)
-        response = StockPriceNotificationRead(**notification)
+        response = StockPriceNotificationReadRs(**notification)
         return response
     except (KeyError, ValueError, AttributeError, MachineError) as v_err:
         logging.error(v_err.args)
@@ -65,7 +65,7 @@ async def add_notification_stock_price(notification_request: StockPriceNotificat
 @router.get("/{id}",
             response_model_exclude_none=True,
             status_code=HTTP_200_OK,
-            response_model=StockPriceNotificationRead,
+            response_model=StockPriceNotificationReadRs,
             responses={**responses}
             )
 async def get_notification_stock_price_by_id(id: str = Path(...,
@@ -79,7 +79,7 @@ async def get_notification_stock_price_by_id(id: str = Path(...,
     """
     try:
         notification = await NotificationService.get_notification(id)
-        response = StockPriceNotificationRead(**notification)
+        response = StockPriceNotificationReadRs(**notification)
         return response
     except (KeyError, ValueError, AttributeError, MachineError) as v_err:
         logging.error(v_err.args)

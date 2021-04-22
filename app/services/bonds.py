@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from starlette import status
 
 from app.core.logging import setup_logging
+from app.core import settings
 from app.db.redis_pub import Redis
 from app.models.models import BondFilter, BondsRs
 
@@ -51,7 +52,9 @@ class DataFetcher:
     async def to_cache(json_data: str) -> Optional[str]:
         logging.debug(f'Called to_cache with json: {json_data}')
         redis = Redis()
-        cache = await redis.save_cache(message=json_data)
+        cache = await redis.save_cache(message=json_data,
+                                       collection_key=settings.redis_bonds_list_cache_key,
+                                       ttl_per_sec=settings.redis_bonds_list_cache_ttl)
         logging.debug(f'Saved to {cache}')
         return cache
 
