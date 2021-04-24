@@ -5,7 +5,7 @@ from fastapi import (APIRouter, status, Path)
 
 from app.core.logging import setup_logging
 from app.models.models import StockRs, FindStockRq
-from app.services.notification import StockService
+from app.services.stock import StockService
 
 router = APIRouter()
 
