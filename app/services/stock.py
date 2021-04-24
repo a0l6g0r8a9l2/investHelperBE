@@ -7,7 +7,7 @@ from typing import Optional, List
 import httpx
 
 from app.core.logging import setup_logging
-from app.models.models import (StockRs, ExchangeSuffix, ExchangeRs, FindStockRq, Amount, StockRq)
+from app.models.models import (StockRs, ExchangeSuffix, ExchangeRs, FindStockRq, Amount, StockRq, AssetProfile)
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -82,11 +82,14 @@ class StockService(YahooApiService):
                     currency=item.get("currency"),
                     currency_symbol=item.get("currencySymbol")
                 )
+                asset_profile = await self.stock_profile(StockRq(ticker=item.get("symbol").partition('.')[0],
+                                                                 exchange=exchange))
                 asset = StockRs(
                     shortName=item.get("shortName"),
                     price=amount,
                     ticker=item.get("symbol").partition('.')[0],
-                    exchange=exchange
+                    exchange=exchange,
+                    assetProfile=asset_profile
                 )
                 response_list.append(asset)
             logger.debug(f'Returning objects: {response_list}')
@@ -117,5 +120,20 @@ class StockService(YahooApiService):
             done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)
 
-    async def stock_profile(self, stock: StockRq):
-        raise NotImplementedError
+    async def stock_profile(self, stock: StockRq) -> AssetProfile:
+        module = 'assetProfile'
+        try:
+            url = f'https://query1.finance.yahoo.com/v10/finance/quoteSummary/' \
+                  f'{stock.exchange.yahoo_search_symbol}?modules={module}'
+            response = await asyncio.create_task(asyncio.wait_for(self.fetch_data(url), timeout=3))
+            profile_root: dict = response.get("quoteSummary")["result"][0][module]
+            asset_profile = AssetProfile(
+                industry=profile_root.get('industry'),
+                sector=profile_root.get('sector'),
+                site=profile_root.get('website')
+            )
+            logger.debug(f'Return profile: {asset_profile}')
+            return asset_profile
+        except CancelledError:
+            done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
+            await asyncio.gather(pending)

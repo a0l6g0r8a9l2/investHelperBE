@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum, unique
 from typing import Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_503_SERVICE_UNAVAILABLE
 
 
@@ -141,9 +141,15 @@ class ExchangeRs(BaseModel):
 
 
 class Amount(BaseModel):
-    value: Decimal
-    currency: str
-    currency_symbol: str
+    value: Decimal = Field(...,
+                           description='Asset price',
+                           example=Decimal('171.73'))
+    currency: str = Field(...,
+                          description='Asset currency code',
+                          example='RUB')
+    currency_symbol: str = Field(...,
+                                 description='Asset currency symbol',
+                                 example='руб.')
 
 
 class StockRq(BaseModel):
@@ -163,9 +169,24 @@ class FindStockRq(BaseModel):
                         example="MOEX")
 
 
+class AssetProfile(BaseModel):
+    industry: str = Field(...,
+                          description='Asset industry',
+                          example='Financial Data & Stock Exchanges')
+    sector: str = Field(...,
+                        description='Asset sector',
+                        example='Financial Services')
+    site: Optional[HttpUrl] = Field(...,
+                                    description='Asset company website',
+                                    example='http://www.moex.com')
+
+
 class StockRs(StockRq):
-    shortName: Optional[str] = None
+    shortName: Optional[str] = Field(None,
+                                     description='Asset short name',
+                                     example='MOSCOW EXCHANGE')
     price: Amount
+    assetProfile: Optional[AssetProfile]
 
 
 class StockPriceNotificationCreateRq(StockRq):
