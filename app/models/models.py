@@ -129,9 +129,15 @@ class ExchangeSuffix(str, Enum):
 
 
 class ExchangeRs(BaseModel):
-    code: Optional[str]
-    name: Optional[str]
-    yahoo_search_symbol: str
+    code: Optional[str] = Field(None,
+                                description='YahooFinance exchange code',
+                                example='.ME')
+    name: Optional[str] = Field(None,
+                                description='Exchange name',
+                                example='MCX')
+    yahoo_search_symbol: str = Field(None,
+                                     description='YahooFinance search symbol',
+                                     example='MOEX.ME')
 
 
 class Amount(BaseModel):
@@ -141,12 +147,20 @@ class Amount(BaseModel):
 
 
 class StockRq(BaseModel):
-    ticker: str
+    ticker: str = Field(...,
+                        description="The ticker length must be greater than one and less then 6",
+                        min_length=1,
+                        max_length=5,
+                        example="MOEX")
     exchange: ExchangeRs
 
 
 class FindStockRq(BaseModel):
-    ticker: str
+    ticker: str = Field(...,
+                        description="The ticker length must be greater than one and less then 6",
+                        min_length=1,
+                        max_length=5,
+                        example="MOEX")
 
 
 class StockRs(StockRq):

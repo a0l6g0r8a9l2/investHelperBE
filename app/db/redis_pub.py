@@ -40,8 +40,11 @@ class Redis:
                          ttl_per_sec: Optional[int] = None):
         redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
         try:
-            await redis.set(key=collection_key, expire=ttl_per_sec, value=message)
-            logging.debug(f'Message saved to redis key: {collection_key}, ttl: {ttl_per_sec} sec')
+            cache = await redis.set(key=collection_key, expire=ttl_per_sec, value=message)
+            if cache:
+                logging.debug(f'Message saved to redis key: {collection_key}, ttl: {ttl_per_sec} sec')
+            else:
+                raise RedisError(f'Error trying to save message')
             return collection_key
         except RedisError as redis_err:
             logging.error(f'Redis error: {redis_err.args}')
