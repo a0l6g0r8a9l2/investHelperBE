@@ -69,7 +69,6 @@ async def get_all_notification_by_chat_id(chatId: str = Query(...,
     """
     Контролер для чтения уведомлений о изменении цены акции
     """
-    # todo: уведомдения не удаляются по истеченю ттл
     logger.debug(f'Request to get_all_notification_stock_price_by_id with: '
                  f'chatId {chatId}')
     notification = NotificationStockPriceService()

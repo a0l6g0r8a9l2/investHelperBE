@@ -157,7 +157,7 @@ class StockRq(BaseModel):
 
 class FindStockRq(BaseModel):
     ticker: str = Field(...,
-                        description="The ticker length must be greater than one and less then 6",
+                        description="Stock ticker",
                         min_length=1,
                         max_length=5,
                         example="MOEX")
