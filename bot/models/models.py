@@ -96,7 +96,7 @@ class StockRs(StockRq):
                                      description='Asset short name',
                                      example='MOSCOW EXCHANGE')
     price: Amount
-    assetProfile: Optional[AssetProfile]
+    assetProfile: Optional[AssetProfile] = None
 
 
 class StockPriceNotificationCreateRq(StockRq):

@@ -136,6 +136,8 @@ class StockService(YahooApiService):
             )
             logger.debug(f'Return profile: {asset_profile}')
             return asset_profile
+        except AttributeError:
+            logger.error(f'No asset profile for {stock.exchange.yahoo_search_symbol}')
         except CancelledError:
             done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)

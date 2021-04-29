@@ -27,8 +27,7 @@ class StockService(ApiRequest):
                 logger.debug(f'Requested url {self.url}')
                 url = self.url + ticker.upper()
                 response = await client.get(url, headers=self.headers)
-                if not response.status_code == 200:
-                    raise MakeRequestError(f'HTTP error with: {response.status_code}, {response.content}')
+                response.raise_for_status()
                 stock_list = []
                 try:
                     for item in response.json():

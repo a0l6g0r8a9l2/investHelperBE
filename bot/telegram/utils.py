@@ -61,10 +61,13 @@ class MarkdownMessageBuilder(MarkdownFormatter):
         if isinstance(self.row_message, StockRs):
             message: StockRs = self.row_message
             name = self.bold(f'{message.shortName}')
-            industry = 'Отрасль: ' + self.bold(f'{message.assetProfile.industry}')
-            sector = 'Сектор: ' + self.bold(f'{message.assetProfile.sector}')
             asset_ticker = 'Тикер ' + self.bold(f'{message.ticker}')
             price = 'Текущая цена: ' + self.bold(f'{message.price.value}{message.price.currency_symbol}')
-            site = f'Сайт эмитента: {message.assetProfile.site}'
-            msg = name + '\n' + industry + '\n' + sector + '\n' + price + '\n' + asset_ticker + '\n' + site
+            if not message.assetProfile:
+                msg = name + '\n' + price + '\n' + asset_ticker
+            else:
+                industry = 'Отрасль: ' + self.bold(f'{message.assetProfile.industry}') + '\n'
+                sector = 'Сектор: ' + self.bold(f'{message.assetProfile.sector}') + '\n'
+                site = f'Сайт эмитента: {message.assetProfile.site}'
+                msg = name + '\n' + industry + sector + price + '\n' + asset_ticker + '\n' + site
         return msg

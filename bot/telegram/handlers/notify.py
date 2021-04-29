@@ -5,6 +5,7 @@ from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from httpx import HTTPStatusError
 
 from bot.api.notification import NotificationService
 from bot.api.stock import StockService
@@ -60,21 +61,24 @@ async def notify_waiting_for_ticker(message: types.Message, state: FSMContext):
         await message.reply(full_message(1, msg_body))
         return
 
-    stocks = await StockService().find_stock_by_ticker(ticker=message.text.upper())
-    logger.debug(f'Stocks: {stocks}')
-    if stocks and len(stocks) > 0:
-        current_stock = stocks.pop()
-        logger.debug(f'Current stock: {current_stock}')
-        msg_body = MarkdownMessageBuilder(current_stock).build_stock_find_message()
-        logger.debug(f'Msg body: {msg_body}')
-        await state.update_data(rest_stocks=stocks, ticker=message.text.upper(), current_stock=current_stock)
-        await OrderNotification.waiting_for_approve_stock.set()
-        approve_keyboard = InlineKeyboardMarkup(row_width=3)
-        approve_keyboard.row(*[InlineKeyboardButton(i, callback_data=i) for i in approve_options])
-        await message.answer(full_message(2, msg_body), parse_mode="Markdown",
-                             reply_markup=approve_keyboard)
-    else:
-        await message.reply(f'По тикеру {message.text} ничего не найдено. Пожалуйста, поверьте привильность тикера.')
+    try:
+        stocks = await StockService().find_stock_by_ticker(ticker=message.text.upper())
+        if stocks and len(stocks) > 0:
+            current_stock = stocks.pop()
+            logger.debug(f'Current stock: {current_stock}')
+            msg_body = MarkdownMessageBuilder(current_stock).build_stock_find_message()
+            logger.debug(f'Msg body: {msg_body}')
+            await state.update_data(rest_stocks=stocks, ticker=message.text.upper(), current_stock=current_stock)
+            await OrderNotification.waiting_for_approve_stock.set()
+            approve_keyboard = InlineKeyboardMarkup(row_width=3)
+            approve_keyboard.row(*[InlineKeyboardButton(i, callback_data=i) for i in approve_options])
+            await message.answer(full_message(2, msg_body), parse_mode="Markdown",
+                                 reply_markup=approve_keyboard)
+        else:
+            await message.reply(f'По тикеру {message.text} ничего не найдено. Пожалуйста, поверьте привильность тикера.')
+    except HTTPStatusError as err:
+        logger.error(f'Error trying to find stock with: {err.response.status_code}')
+        await message.reply(f'Ошибка при поиске по тикеру {message.text}. Пожалуйста, попробуйте позднее.')
 
 
 async def notify_waiting_for_approve_stock(callback_query: types.CallbackQuery, state: FSMContext):

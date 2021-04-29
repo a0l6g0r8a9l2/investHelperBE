@@ -4,7 +4,7 @@ from typing import List
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
 from bot.api.bonds import BondsService
 from bot.core.logging import setup_logging
@@ -18,9 +18,6 @@ logger = logging.getLogger(__name__)
 class GetBondsStates(StatesGroup):
     introduce_step = State()
     next_item_step = State()
-
-
-next_keyboard = InlineKeyboardMarkup(row_width=1)
 
 
 def message_header(count_items: int, current_item_num: int) -> str:
@@ -50,12 +47,13 @@ async def bonds_introduce(message: types.Message, state: FSMContext):
     better_choice: Bond
     other: List[Bond]
     msg = full_message(count_items, count_items, better_choice)
+    await state.update_data(bonds_list=other, count_items=count_items)
+    await GetBondsStates.next_item_step.set()
+    next_keyboard = InlineKeyboardMarkup(row_width=1)
     await message.answer(msg,
                          parse_mode="Markdown",
                          reply_markup=next_keyboard
                          .row(InlineKeyboardButton("Следующую", callback_data=message.message_id)))
-    await state.update_data(bonds_list=other, count_items=count_items)
-    await GetBondsStates.next_item_step.set()
 
 
 async def bonds_next_item(callback_query: types.CallbackQuery, state: FSMContext):
@@ -69,10 +67,15 @@ async def bonds_next_item(callback_query: types.CallbackQuery, state: FSMContext
         better_choice, other = service.pop_better(bonds_list).values()
         await state.update_data(bonds_list=other)
         msg = full_message(count_items, current_item_num, better_choice)
-        await callback_query.message.answer(msg, parse_mode="Markdown")  # , reply_markup=next_keyboard
+        next_keyboard = InlineKeyboardMarkup(row_width=1)
+        await callback_query.message.answer(msg,
+                                            parse_mode="Markdown",
+                                            reply_markup=next_keyboard
+                                            .row(InlineKeyboardButton("Следующую",
+                                                                      callback_data=callback_query.message.message_id)))
     else:
-        msg = f"{Mf.bold('На сегодня это весь список подобранных облигаций!')}\n" \
-              f"Список обновляется каждый день."
+        msg = f"{Mf.bold('На сегодня это весь список подобранных облигаций!')}" + "\n" + \
+              "Список обновляется каждый день."
         await callback_query.message.answer(msg, parse_mode="Markdown")
         await state.finish()
 
