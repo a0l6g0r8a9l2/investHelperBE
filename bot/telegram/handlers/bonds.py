@@ -69,10 +69,10 @@ async def bonds_next_item(callback_query: types.CallbackQuery, state: FSMContext
         better_choice, other = service.pop_better(bonds_list).values()
         await state.update_data(bonds_list=other)
         msg = full_message(count_items, current_item_num, better_choice)
-        await callback_query.message.answer(msg, parse_mode="Markdown", reply_markup=next_keyboard)
+        await callback_query.message.answer(msg, parse_mode="Markdown")  # , reply_markup=next_keyboard
     else:
         msg = f"{Mf.bold('На сегодня это весь список подобранных облигаций!')}\n" \
-                   f"Список обновляется каждый день."
+              f"Список обновляется каждый день."
         await callback_query.message.answer(msg, parse_mode="Markdown")
         await state.finish()
 

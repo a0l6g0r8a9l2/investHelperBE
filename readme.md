@@ -3,7 +3,7 @@
 
 ### 1. Build
 
-`docker-compose build`
+`docker-compose build_notification_message`
 
 ### 2. Run
 
@@ -22,7 +22,7 @@
 
 ### 3. Build app image
    
-`docker build -t notification-invest-helper-bot .`
+`docker build_notification_message -t notification-invest-helper-bot .`
       
 ### 4. Run app
 
@@ -30,7 +30,7 @@
 
 ### 5. Build bot image
 
-`docker build -t notification-bot .`
+`docker build_notification_message -t notification-bot .`
 
 ### 6. Run bot
 

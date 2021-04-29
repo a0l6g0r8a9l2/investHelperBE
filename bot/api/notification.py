@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from bot.api.base import ApiRequest
 from bot.core.exceptions import PrepareRequestError, MakeRequestError
 from bot.core.logging import setup_logging
-from bot.models.models import StockPriceNotificationCreateBot, StockPriceNotificationCreateApiRq
+from bot.models.models import StockPriceNotificationCreateRq, StockPriceNotificationRqBot
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class NotificationService(ApiRequest):
     base_path = '/notification/'
 
-    def __init__(self, notification_user_data: StockPriceNotificationCreateBot):
+    def __init__(self, notification_user_data: StockPriceNotificationRqBot):
         self.notification_user_data = notification_user_data
 
     async def create_notification(self) -> Optional[dict]:
@@ -31,27 +31,26 @@ class NotificationService(ApiRequest):
             async with httpx.AsyncClient() as client:
                 response = await client.post(self.url, headers=self.headers, content=self.params.json())
                 logging.debug(
-                    f'Log from {self.create_notification.__name__}: '
-                    f'status: {response.status_code}')
+                    f'Log from create_notification: status: {response.status_code}')
                 if response.status_code != 201:
                     raise MakeRequestError(f'HTTP error with: {response.status_code}, {response.content}')
                 else:
                     response = response.json()
                     return response
         except httpx.HTTPError as exc:
-            logging.error(f'Error from {__name__}: {exc}')
+            logging.error(f'Error from create_notification: {exc}')
 
     @property
-    def params(self) -> StockPriceNotificationCreateApiRq:
+    def params(self) -> StockPriceNotificationCreateRq:
         try:
             bot_notification = self.notification_user_data.dict()
-            logging.debug(f'Log from {__name__}: user_data: {bot_notification}')
+            logging.debug(f'Log from create_notification, user_data: {bot_notification}')
 
             end_notification, delay = bot_notification['endNotification'], bot_notification['delay']
             bot_notification['endNotification'] = self.convert_period_to_datetime(end_notification)
             bot_notification['delay'] = self.convert_period_to_seconds(delay)
 
-            request_params = StockPriceNotificationCreateApiRq(**bot_notification)
+            request_params = StockPriceNotificationCreateRq(**bot_notification)
             return request_params
         except (KeyError, ValueError, ValidationError) as err:
             logging.error(f'Log from prepare_request: {err.args}')

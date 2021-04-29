@@ -9,6 +9,7 @@ from uuid import uuid4
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import HTTPException
 from pydantic import ValidationError
+from starlette import status
 from transitions.extensions import AsyncMachine
 
 from app.core import settings
@@ -20,7 +21,7 @@ from app.models.models import (StockPriceNotificationCreateRq,
                                TelegramUser,
                                StockPriceNotificationDeleteRq,
                                StockRq, ActionsOnExchange,
-                               NotificationMessage)
+                               )
 from app.services.stock import StockService
 
 # todo: add some tests
@@ -43,7 +44,8 @@ class NotificationStockPriceService:
         self.__notification_cache_key = None
         self.__loop = asyncio.get_event_loop()
         self.machine = AsyncMachine(model=self, states=NotificationStockPriceService.states, initial='new')
-        self.machine.add_transition(trigger='start', source='new', dest='in_progress', unless=['is_expired', 'is_finished'])
+        self.machine.add_transition(trigger='start', source='new', dest='in_progress',
+                                    unless=['is_expired', 'is_finished'])
         self.machine.add_transition(trigger='to_expired', source='*', dest='disabled', conditions='is_expired')
         self.machine.add_transition(trigger='to_done', source='in_progress', dest='done')
         self.machine.add_transition(trigger='stop', source=['new', 'in_progress'], dest='disabled')
@@ -88,7 +90,8 @@ class NotificationStockPriceService:
             current_stock_amount = await self.stock_service.get_stock_price(stock_rq_data)
             response = StockPriceNotificationReadRs(**notification.dict(),
                                                     id=notification_id,
-                                                    currentPrice=current_stock_amount)
+                                                    currentPrice=current_stock_amount,
+                                                    state='new')
             self.notification = response
             logger.debug(f'Build model: {response}')
 
@@ -107,6 +110,9 @@ class NotificationStockPriceService:
             logger.info(f'Notification {notification_id} is created')
             await self.machine.dispatch('start')
             return response
+        except ValidationError as ve:
+            logger.error(f'Validation error while trying creating notification: {ve}')
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f'{ve.errors()}')
         except CancelledError:
             done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)
@@ -151,6 +157,7 @@ class NotificationStockPriceService:
             if notification:
                 actual_price = await self.get_actual_price()
                 notification.currentPrice.value = actual_price
+                notification.state = self.state
 
                 await self.storage.save_cache(
                     message=notification.json(),
@@ -263,12 +270,14 @@ class NotificationStockPriceService:
         :return:
         """
         try:
-            notification = await self.get_cached_notification()
-            if not notification:
+            notification_json = await self.storage.get_cached(self.notification_cache_key)
+            if notification_json:
+                notification: StockPriceNotificationReadRs = StockPriceNotificationReadRs.parse_raw(notification_json)
+            else:
                 notification = self.created_notification
-            message = NotificationMessage(**notification.dict(), state=self.state)
-            logger.debug(f'Sending message {message}')
-            await self.storage.start_publish(message=message.json(), queue=settings.redis_notification_queue)
+            notification.state = self.state
+            logger.debug(f'Sending message {notification.json()}')
+            await self.storage.start_publish(message=notification.json(), queue=settings.redis_notification_queue)
         except CancelledError:
             done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)

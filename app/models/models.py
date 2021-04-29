@@ -3,8 +3,7 @@ from decimal import Decimal
 from enum import Enum, unique
 from typing import Optional, List
 
-from pydantic import BaseModel, Field, HttpUrl
-from starlette.status import HTTP_404_NOT_FOUND, HTTP_503_SERVICE_UNAVAILABLE
+from pydantic import BaseModel, Field
 
 
 @unique
@@ -17,16 +16,6 @@ class ActionsOnExchange(str, Enum):
 class Board(str, Enum):
     TQCB = 'Т+: Облигации - безадресные'
     TQOB = 'Т+: Гособлигации - безадресные'
-
-
-class Message(BaseModel):
-    message: str
-
-
-responses = {
-    HTTP_404_NOT_FOUND: {"model": Message},
-    HTTP_503_SERVICE_UNAVAILABLE: {"model": Message}
-}
 
 
 class BondFilter(BaseModel):
@@ -176,9 +165,9 @@ class AssetProfile(BaseModel):
     sector: str = Field(...,
                         description='Asset sector',
                         example='Financial Services')
-    site: Optional[HttpUrl] = Field(...,
-                                    description='Asset company website',
-                                    example='http://www.moex.com')
+    site: Optional[str] = Field(...,
+                                description='Asset company website',
+                                example='http://www.moex.com')
 
 
 class StockRs(StockRq):
@@ -242,17 +231,4 @@ class StockPriceNotificationReadRs(StockPriceNotificationCreateRq):
                     max_length=50,
                     example="5f46c2950e4f4ea916ec05ab")
     currentPrice: Amount
-
-
-class NotificationPayload(BaseModel):
-    id: Optional[str]
-    state: str
-    ticker: str
-    action: str
-    event: Optional[str]
-    targetPrice: float
-    currentPrice: Amount
-
-
-class NotificationMessage(NotificationPayload):
-    chatId: str
+    state: Optional[str] = None

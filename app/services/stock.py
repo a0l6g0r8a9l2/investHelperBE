@@ -116,6 +116,8 @@ class StockService(YahooApiService):
             )
             logger.debug(f'Return amount {amount}')
             return amount
+        except AttributeError:
+            logger.error(f'No such price for {stock.exchange.yahoo_search_symbol}')
         except CancelledError:
             done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
             await asyncio.gather(pending)

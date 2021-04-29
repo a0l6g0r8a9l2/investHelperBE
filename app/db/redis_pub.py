@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from contextlib import asynccontextmanager
 from asyncio import CancelledError
+from contextlib import asynccontextmanager
 from typing import Optional, List
 
 import aioredis
@@ -9,7 +9,6 @@ from aioredis import RedisError
 
 from app.core import settings
 from app.core.logging import setup_logging
-from app.models.models import NotificationMessage
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -46,10 +45,10 @@ class Redis:
 
     @error_logging_handler
     async def start_publish(self,
-                            message: NotificationMessage,
+                            message: str,
                             queue: str = settings.redis_notification_queue):
         async with self.get_connection() as conn:
-            conn.rpush(queue, message)
+            await conn.rpush(queue, message)
             logging.debug(f'Message pushed to redis queue: {queue}')
 
     @error_logging_handler
