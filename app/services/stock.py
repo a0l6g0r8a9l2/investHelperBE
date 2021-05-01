@@ -7,6 +7,7 @@ from typing import Optional, List
 import httpx
 
 from app.core.logging import setup_logging
+from app.core import settings
 from app.models.models import (StockRs, ExchangeSuffix, ExchangeRs, FindStockRq, Amount, StockRq, AssetProfile)
 
 setup_logging()
@@ -67,7 +68,7 @@ class StockService(YahooApiService):
             yahoo_symbol_list = [stock.ticker + i for i in ExchangeSuffix]
             urls = [f'https://query1.finance.yahoo.com/v10/finance/quoteSummary/'
                     f'{s}?modules={self.module}' for s in yahoo_symbol_list]
-            tasks = [asyncio.create_task(asyncio.wait_for(self.fetch_data(url), timeout=3)) for url in
+            tasks = [asyncio.create_task(asyncio.wait_for(self.fetch_data(url), timeout=settings.time_out)) for url in
                      urls]
             result_lst = [r.get("quoteSummary")["result"][0]["price"] for r in await asyncio.gather(*tasks) if r]
 

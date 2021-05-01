@@ -7,7 +7,7 @@ import httpx
 from pydantic import ValidationError
 
 from bot.api.base import ApiRequest
-from bot.core.exceptions import PrepareRequestError, MakeRequestError
+from bot.core.exceptions import MakeRequestError, PrepareRequestError
 from bot.core.logging import setup_logging
 from bot.models.models import StockPriceNotificationCreateRq, StockPriceNotificationRqBot
 
@@ -32,6 +32,7 @@ class NotificationService(ApiRequest):
                 response = await client.post(self.url, headers=self.headers, content=self.params.json())
                 logging.debug(
                     f'Log from create_notification: status: {response.status_code}')
+                response.raise_for_status()
                 if response.status_code != 201:
                     raise MakeRequestError(f'HTTP error with: {response.status_code}, {response.content}')
                 else:

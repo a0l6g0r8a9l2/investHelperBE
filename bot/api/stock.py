@@ -1,12 +1,11 @@
 #!venv/bin/python
 import logging
-from typing import List, Dict
+from typing import List
 
 import httpx
 from pydantic import ValidationError
 
 from bot.api.base import ApiRequest
-from bot.core.exceptions import MakeRequestError
 from bot.core.logging import setup_logging
 from bot.models.models import StockRs
 

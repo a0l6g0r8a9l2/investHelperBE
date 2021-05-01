@@ -24,7 +24,6 @@ from app.models.models import (StockPriceNotificationCreateRq,
                                )
 from app.services.stock import StockService
 
-# todo: add some tests
 setup_logging()
 logger = logging.getLogger(__name__)
 

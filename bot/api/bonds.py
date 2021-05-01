@@ -28,18 +28,21 @@ class BondsService(ApiRequest):
                 return response
 
     async def list(self) -> List[Bond]:
-        response = await self.raw_bonds_list()
-        obj_list: list = json.loads(response.text)
-        bonds_list = []
-        for item in obj_list:
-            try:
-                bond = Bond(**item)
-            except ValidationError as ve:
-                logging.error(f'Passing obj: {item}. Error: {ve}')
-            else:
-                bonds_list.append(bond)
-        logging.debug(f'Bonds list contain {len(bonds_list)} items')
-        return bonds_list
+        try:
+            response = await self.raw_bonds_list()
+            obj_list: list = json.loads(response.text)
+            bonds_list = []
+            for item in obj_list:
+                try:
+                    bond = Bond(**item)
+                except ValidationError as ve:
+                    logging.error(f'Passing obj: {item}. Error: {ve}')
+                else:
+                    bonds_list.append(bond)
+            logging.debug(f'Bonds list contain {len(bonds_list)} items')
+            return bonds_list
+        except TypeError as te:
+            logger.error(f'Error getting bons list: {te}')
 
     @staticmethod
     def pop_better(bonds_list: List[Bond]) -> Dict[str, Union[Bond, List[Bond]]]:

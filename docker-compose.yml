@@ -14,19 +14,17 @@ services:
       - "8000:80"
     environment:
       - TZ=Europe/Moscow
-      - BOT_TOKEN=
       - BOT_ENV=PROD
       - MONGO_NAME=invest
       - MONGO_COLLECTION=notifications
       - MONGO_HOST=mongodb
       - MONGO_PORT=27017
-      - CHAT_ID=
       - REDIS_PORT=6379
       - REDIS_HOST=redis
       - REDIS_BONDS_LIST_CACHE_KEY=notification:bonds:default6:received
       - REDIS_BONDS_LIST_CACHE_TTL=86400
       - REDIS_NOTIFICATION_QUEUE=notification:stock:price:received
-      - TIME_OUT=3
+      - TIME_OUT=4
     depends_on:
       - mongodb
       - redis
@@ -37,15 +35,13 @@ services:
     restart: always
     environment:
       - TZ=Europe/Moscow
-      - TELEGRAM_API_TOKEN=
       - BOT_ENV=PROD
-      - TELEGRAM_ACCESS_ID=
-      - NOTIFICATION_SERVICE_HOST=notification-service
+      - SERVER_HOST=notification-service
       - REDIS_NOTIFICATION_QUEUE=notification:stock:price:received
-      - NOTIFICATION_SERVICE_PORT=80
+      - SERVER_PORT=80
       - REDIS_PORT=6379
       - REDIS_HOST=redis
-      - TIME_OUT=3
+      - TIME_OUT=4
     depends_on:
       - notification
 

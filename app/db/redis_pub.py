@@ -31,8 +31,8 @@ def error_logging_handler(func):
 
 
 class Redis:
-    def __init__(self, host: str = settings.redis_host, port: str = settings.redis_port):
-        self.redis_connection_string = f'redis://{host}:{port}/0'
+    def __init__(self, host: str = settings.redis_host, port: str = settings.redis_port, db: int = 0):
+        self.redis_connection_string = f'redis://{host}:{port}/{db}'
 
     @asynccontextmanager
     async def get_connection(self):

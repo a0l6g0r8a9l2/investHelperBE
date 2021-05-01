@@ -4,12 +4,12 @@ from typing import List
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.api.bonds import BondsService
 from bot.core.logging import setup_logging
 from bot.models.models import Bond
-from bot.telegram.utils import MarkdownFormatter as Mf
+from bot.telegram.utils import MarkdownMessageBuilder
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -21,22 +21,11 @@ class GetBondsStates(StatesGroup):
 
 
 def message_header(count_items: int, current_item_num: int) -> str:
-    return Mf.italic(f'{current_item_num} из {count_items}.') + '\n\n'
-
-
-def message_body(bond: Bond) -> str:
-    msg_body = f"ISIN: {bond.isin}\n" \
-               f"Название: {bond.name}\n" \
-               f"Дата офферты/погашения: {bond.expiredDate.date()}\n" \
-               f"Цена в % от номинала: {bond.price}%\n" \
-               f"Размер купона: {bond.couponPercent}%\n" \
-               f"Периодичность купона: {bond.couponPeriod}\n" \
-               f"Эффективная доходность: {bond.effectiveYield}%"
-    return msg_body
+    return MarkdownMessageBuilder.italic(f'{current_item_num} из {count_items}.') + '\n\n'
 
 
 def full_message(count_items: int, current_item_num: int, item: Bond) -> str:
-    return message_header(count_items, current_item_num) + message_body(item)
+    return message_header(count_items, current_item_num) + MarkdownMessageBuilder(item).build_bond_message_body()
 
 
 async def bonds_introduce(message: types.Message, state: FSMContext):

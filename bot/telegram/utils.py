@@ -1,4 +1,4 @@
-from bot.models.models import StockPriceNotificationReadRs, StockRs
+from bot.models.models import StockPriceNotificationReadRs, StockRs, Bond
 
 
 class MarkdownFormatter:
@@ -71,3 +71,16 @@ class MarkdownMessageBuilder(MarkdownFormatter):
                 site = f'Сайт эмитента: {message.assetProfile.site}'
                 msg = name + '\n' + industry + sector + price + '\n' + asset_ticker + '\n' + site
         return msg
+
+    def build_bond_message_body(self) -> str:
+        msg_body = ''
+        if isinstance(self.row_message, Bond):
+            bond: Bond = self.row_message
+            msg_body = f"ISIN: {bond.isin}\n" \
+                       f"Название: {bond.name}\n" \
+                       f"Дата офферты/погашения: {bond.expiredDate.date()}\n" \
+                       f"Цена в % от номинала: {bond.price}%\n" \
+                       f"Размер купона: {bond.couponPercent}%\n" \
+                       f"Периодичность купона: {bond.couponPeriod}\n" \
+                       f"Эффективная доходность: {bond.effectiveYield}%"
+        return msg_body
