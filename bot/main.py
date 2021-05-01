@@ -8,7 +8,7 @@ from aiogram.types import BotCommand
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 from bot.api.redis_sub import RedisListener
-from bot.core import cfg
+from bot.core import settings
 from bot.core.logging import setup_logging
 from bot.core.middlewares import AccessMiddleware
 from bot.telegram.handlers.bonds import register_handlers_bonds
@@ -27,11 +27,11 @@ async def set_commands(tg_bot: Bot):
 
 
 async def main():
-    bot = Bot(token=cfg.get("TELEGRAM_API_TOKEN"))
+    bot = Bot(token=settings.telegram_token)
     dp = Dispatcher(bot, storage=MemoryStorage())
 
     dp.middleware.setup(LoggingMiddleware())
-    dp.middleware.setup(AccessMiddleware(cfg.get("TELEGRAM_ACCESS_ID")))
+    dp.middleware.setup(AccessMiddleware(settings.telegram_chat_id))
 
     register_handlers_notify(dp)
     register_handlers_bonds(dp)
@@ -41,7 +41,8 @@ async def main():
     notify_listener = RedisListener()
 
     try:
-        await asyncio.gather(dp.start_polling(), notify_listener.start(bot=bot, queue=cfg.get('REDIS_NOTIFICATION_QUEUE')))
+        await asyncio.gather(dp.start_polling(),
+                             notify_listener.start(bot=bot, queue=settings.redis_notification_queue))
     finally:
         await dp.storage.close()
         await dp.storage.wait_closed()

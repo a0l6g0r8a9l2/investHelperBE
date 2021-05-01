@@ -4,7 +4,7 @@ from typing import List
 import motor.motor_asyncio
 from pymongo.errors import PyMongoError
 
-from app.core import config_data
+from app.core import settings
 from app.core.logging import setup_logging
 
 # сетап конфиг и логгер
@@ -20,8 +20,8 @@ class MongodbService:
     _client = None
     _db = None
 
-    def __init__(self, host: str = config_data.get("MONGO_HOST"), port: int = config_data.get("MONGO_PORT"),
-                 db: str = config_data.get("MONGO_NAME"), collection: str = config_data.get("MONGO_COLLECTION")):
+    def __init__(self, host: str = settings.mongo_host, port: int = settings.mongo_port,
+                 db: str = settings.mongo_name, collection: str = settings.mongo_collection):
         self._client = motor.motor_asyncio.AsyncIOMotorClient(host, port)
         self._db = self._client[db]
         self._collection = self._db[collection]

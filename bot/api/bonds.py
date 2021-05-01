@@ -1,7 +1,6 @@
-import asyncio
 import json
 import logging
-from typing import List, Union, Dict, Optional
+from typing import List, Union, Dict
 
 import httpx
 from httpx import Response
@@ -17,31 +16,33 @@ logger = logging.getLogger(__name__)
 
 
 class BondsService(ApiRequest):
-    base_path = '/bonds'
+    base_path = '/bonds/'
 
     async def raw_bonds_list(self) -> Response:
         async with httpx.AsyncClient() as client:
+            logging.debug(f'Log from {self.__class__.__name__}: url: {self.url}')
             response = await client.get(self.url, headers=self.headers)
-            logging.debug(
-                f'Log from {self.__class__.__name__}: url: {self.url}, status: {response.status_code}')
             if response.status_code != 200:
                 raise MakeRequestError(f'HTTP error with: {response.status_code}')
             else:
                 return response
 
     async def list(self) -> List[Bond]:
-        response = await self.raw_bonds_list()
-        obj_list: list = json.loads(response.text)
-        bonds_list = []
-        for item in obj_list:
-            try:
-                bond = Bond(**item)
-            except ValidationError as ve:
-                logging.error(f'Passing obj: {item}. Error: {ve}')
-            else:
-                bonds_list.append(bond)
-        logging.debug(f'Bonds list contain {len(bonds_list)} items')
-        return bonds_list
+        try:
+            response = await self.raw_bonds_list()
+            obj_list: list = json.loads(response.text)
+            bonds_list = []
+            for item in obj_list:
+                try:
+                    bond = Bond(**item)
+                except ValidationError as ve:
+                    logging.error(f'Passing obj: {item}. Error: {ve}')
+                else:
+                    bonds_list.append(bond)
+            logging.debug(f'Bonds list contain {len(bonds_list)} items')
+            return bonds_list
+        except TypeError as te:
+            logger.error(f'Error getting bons list: {te}')
 
     @staticmethod
     def pop_better(bonds_list: List[Bond]) -> Dict[str, Union[Bond, List[Bond]]]:

@@ -9,7 +9,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.api.bonds import BondsService
 from bot.core.logging import setup_logging
 from bot.models.models import Bond
-from bot.telegram.utils import MarkdownFormatter as Mf
+from bot.telegram.utils import MarkdownMessageBuilder
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -20,26 +20,12 @@ class GetBondsStates(StatesGroup):
     next_item_step = State()
 
 
-next_keyboard = InlineKeyboardMarkup(row_width=1)
-
-
 def message_header(count_items: int, current_item_num: int) -> str:
-    return Mf.italic(f'{current_item_num} из {count_items}.') + '\n\n'
-
-
-def message_body(bond: Bond) -> str:
-    msg_body = f"ISIN: {bond.isin}\n" \
-               f"Название: {bond.name}\n" \
-               f"Дата офферты/погашения: {bond.expiredDate.date()}\n" \
-               f"Цена в % от номинала: {bond.price}%\n" \
-               f"Размер купона: {bond.couponPercent}%\n" \
-               f"Периодичность купона: {bond.couponPeriod}\n" \
-               f"Эффективная доходность: {bond.effectiveYield}%"
-    return msg_body
+    return MarkdownMessageBuilder.italic(f'{current_item_num} из {count_items}.') + '\n\n'
 
 
 def full_message(count_items: int, current_item_num: int, item: Bond) -> str:
-    return message_header(count_items, current_item_num) + message_body(item)
+    return message_header(count_items, current_item_num) + MarkdownMessageBuilder(item).build_bond_message_body()
 
 
 async def bonds_introduce(message: types.Message, state: FSMContext):
@@ -50,16 +36,18 @@ async def bonds_introduce(message: types.Message, state: FSMContext):
     better_choice: Bond
     other: List[Bond]
     msg = full_message(count_items, count_items, better_choice)
+    await state.update_data(bonds_list=other, count_items=count_items)
+    await GetBondsStates.next_item_step.set()
+    next_keyboard = InlineKeyboardMarkup(row_width=1)
     await message.answer(msg,
                          parse_mode="Markdown",
                          reply_markup=next_keyboard
                          .row(InlineKeyboardButton("Следующую", callback_data=message.message_id)))
-    await state.update_data(bonds_list=other, count_items=count_items)
-    await GetBondsStates.next_item_step.set()
 
 
 async def bonds_next_item(callback_query: types.CallbackQuery, state: FSMContext):
     storage = await state.get_data()
+    logging.debug(f'Getting data from storage in bonds: {storage.items()}')
     bonds_list = storage['bonds_list']
     count_items = int(storage['count_items'])
     current_item_num = len(bonds_list)
@@ -68,11 +56,17 @@ async def bonds_next_item(callback_query: types.CallbackQuery, state: FSMContext
         better_choice, other = service.pop_better(bonds_list).values()
         await state.update_data(bonds_list=other)
         msg = full_message(count_items, current_item_num, better_choice)
-        await callback_query.message.answer(msg, parse_mode="Markdown", reply_markup=next_keyboard)
+        next_keyboard = InlineKeyboardMarkup(row_width=1)
+        await callback_query.message.answer(msg,
+                                            parse_mode="Markdown",
+                                            reply_markup=next_keyboard
+                                            .row(InlineKeyboardButton("Следующую",
+                                                                      callback_data=callback_query.message.message_id)))
     else:
-        msg = f"{Mf.bold('На сегодня это весь список подобранных облигаций!')}\n" \
-                   f"Список обновляется каждый день."
+        msg = f"{Mf.bold('На сегодня это весь список подобранных облигаций!')}" + "\n" + \
+              "Список обновляется каждый день."
         await callback_query.message.answer(msg, parse_mode="Markdown")
+        await state.finish()
 
 
 def register_handlers_bonds(dp: Dispatcher):

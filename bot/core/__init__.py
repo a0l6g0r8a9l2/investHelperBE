@@ -1,3 +1,6 @@
-from bot.core.config import load_config
+from bot.core.config import Settings
 
-cfg = load_config()
+settings = Settings(
+    _env_file='.env',
+    _env_file_encoding='utf-8',
+)

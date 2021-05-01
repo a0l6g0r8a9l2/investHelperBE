@@ -1,10 +1,9 @@
-from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from enum import Enum, unique
 from typing import Optional, List
 
 from pydantic import BaseModel, Field
-from starlette.status import HTTP_404_NOT_FOUND, HTTP_503_SERVICE_UNAVAILABLE
 
 
 @unique
@@ -17,16 +16,6 @@ class ActionsOnExchange(str, Enum):
 class Board(str, Enum):
     TQCB = 'Т+: Облигации - безадресные'
     TQOB = 'Т+: Гособлигации - безадресные'
-
-
-class Message(BaseModel):
-    message: str
-
-
-responses = {
-    HTTP_404_NOT_FOUND: {"model": Message},
-    HTTP_503_SERVICE_UNAVAILABLE: {"model": Message}
-}
 
 
 class BondFilter(BaseModel):
@@ -120,12 +109,76 @@ class BondsRs(BaseModel):
     __root__: List[Bond]
 
 
-class StockPriceNotificationCreate(BaseModel):
+@unique
+class ExchangeSuffix(str, Enum):
+    moscow_exchange = '.ME'
+    honk_kong_exchange = '.HK'
+    uk_exchange = '.IL'
+    default = str()
+
+
+class ExchangeRs(BaseModel):
+    code: Optional[str] = Field(None,
+                                description='YahooFinance exchange code',
+                                example='.ME')
+    name: Optional[str] = Field(None,
+                                description='Exchange name',
+                                example='MCX')
+    yahoo_search_symbol: str = Field(None,
+                                     description='YahooFinance search symbol',
+                                     example='MOEX.ME')
+
+
+class Amount(BaseModel):
+    value: Decimal = Field(...,
+                           description='Asset price',
+                           example=Decimal('171.73'))
+    currency: str = Field(...,
+                          description='Asset currency code',
+                          example='RUB')
+    currency_symbol: str = Field(...,
+                                 description='Asset currency symbol',
+                                 example='руб.')
+
+
+class StockRq(BaseModel):
     ticker: str = Field(...,
                         description="The ticker length must be greater than one and less then 6",
                         min_length=1,
                         max_length=5,
                         example="MOEX")
+    exchange: ExchangeRs
+
+
+class FindStockRq(BaseModel):
+    ticker: str = Field(...,
+                        description="Stock ticker",
+                        min_length=1,
+                        max_length=5,
+                        example="MOEX")
+
+
+class AssetProfile(BaseModel):
+    industry: str = Field(...,
+                          description='Asset industry',
+                          example='Financial Data & Stock Exchanges')
+    sector: str = Field(...,
+                        description='Asset sector',
+                        example='Financial Services')
+    site: Optional[str] = Field(...,
+                                description='Asset company website',
+                                example='http://www.moex.com')
+
+
+class StockRs(StockRq):
+    shortName: Optional[str] = Field(None,
+                                     description='Asset short name',
+                                     example='MOSCOW EXCHANGE')
+    price: Amount
+    assetProfile: Optional[AssetProfile]
+
+
+class StockPriceNotificationCreateRq(StockRq):
     targetPrice: float = Field(...,
                                gt=0,
                                description="The price must be greater than zero",
@@ -144,14 +197,22 @@ class StockPriceNotificationCreate(BaseModel):
                        le=86400,
                        description="Seconds before next check price",
                        example=60)
-    chatId: str = Field(411442889,
+    chatId: str = Field('411442889',
                         description="Yours telegram chat id",
                         min_length=5,
                         max_length=12,
                         example="411442889")
 
 
-class StockPriceNotificationDelete(BaseModel):
+class TelegramUser(BaseModel):
+    chatId: str = Field("411442889",
+                        description="Yours telegram chat id",
+                        min_length=5,
+                        max_length=12,
+                        example="411442889")
+
+
+class StockPriceNotificationReadRq(TelegramUser):
     id: str = Field(...,
                     description="Notification ID",
                     min_length=1,
@@ -159,50 +220,15 @@ class StockPriceNotificationDelete(BaseModel):
                     example="5f46c2950e4f4ea916ec05ab")
 
 
-class StockPriceNotificationRead(StockPriceNotificationCreate):
+class StockPriceNotificationDeleteRq(StockPriceNotificationReadRq):
+    pass
+
+
+class StockPriceNotificationReadRs(StockPriceNotificationCreateRq):
     id: str = Field(...,
                     description="Notification ID",
                     min_length=1,
                     max_length=50,
                     example="5f46c2950e4f4ea916ec05ab")
-
-
-class NotificationPayload(BaseModel):
-    id: Optional[str]
-    state: str
-    ticker: str
-    action: str
-    event: Optional[str]
-    targetPrice: float
-    currentPrice: Optional[float]
-
-
-class NotificationMessage(BaseModel):
-    chatId: str
-    payload: NotificationPayload
-
-
-@unique
-class ExchangeSuffix(Enum):
-    moscow_exchange = '.ME'
-    default = str()
-
-
-@dataclass
-class Stock:
-    """
-    Класс акции
-    """
-
-    ticker: str
-    shortName: Optional[str] = None
-    price: Optional[float] = None
-    currency: Optional[str] = None
-    currency_symbol: Optional[str] = None
-
-    def __repr__(self):
-        if self.price and self.currency_symbol:
-            msg = f'{self.ticker}: {self.price} {self.currency_symbol}'
-        else:
-            msg = f'Price and exchange is not defined for {self.ticker}'
-        return msg
+    currentPrice: Amount
+    state: Optional[str] = None

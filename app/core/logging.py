@@ -22,4 +22,5 @@ def setup_logging(
         logging.config.dictConfig(config)
         return config
     else:
-        logging.basicConfig(level=default_level, format="%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s")
+        logging.basicConfig(level=default_level,
+                            format="%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s")

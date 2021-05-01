@@ -1,8 +1,8 @@
 import asyncio
-from datetime import datetime, timedelta
 
-import httpx
 import pytest
+
+from app.db.redis_pub import Redis
 
 
 @pytest.fixture(scope="module")
@@ -14,63 +14,49 @@ def event_loop():
 
 @pytest.fixture()
 async def sleep_fixture():
-    return await asyncio.sleep(3)
+    return await asyncio.sleep(1)
 
 
-url = 'http://127.0.0.1'
-port = '8000'
-root_path = f'{url}:{port}'
-
-json1 = {
-    "ticker": "MOEX",
-    "targetPrice": 127.5,
-    "action": "Buy",
-    "event": "the price has reached a monthly low",
-    "endNotification": str(datetime.now() + timedelta(hours=5)),
-    "delay": 10,
-    "chatId": "411442889"
-}
-
-json2 = {
-    "ticker": "MOEX",
-    "targetPrice": 127.5,
-    "action": "Sell",
-    "event": "the price has reached a monthly low",
-    "endNotification": str(datetime.now() + timedelta(hours=5)),
-    "delay": 10,
-    "chatId": "411442889"
-}
+redis = Redis()
+redis_test_collection = 'test:collections'
+redis_test_message = 'test message'
+redis_test_ttl = 4
 
 
 @pytest.mark.asyncio
-async def test_root():
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f'{root_path}/docs')
-        assert response.status_code == 200
-
-
-notification_id = ''
-
-
-@pytest.mark.asyncio
-async def test_create_notification():
-    async with httpx.AsyncClient() as client:
-        await client.post(f'{root_path}/stocks/notification/', json=json2)
-        response = await client.post(f'{root_path}/stocks/notification/', json=json1)
-        assert response.status_code == 201
-        global notification_id
-        notification_id = response.json().get('id')
+async def test_redis_save_to_cache(event_loop):
+    cached_collection = await redis.save_cache(collection_key=redis_test_collection,
+                                               message=redis_test_message,
+                                               ttl_per_sec=redis_test_ttl)
+    assert cached_collection == redis_test_collection
 
 
 @pytest.mark.asyncio
-async def test_read_notification(sleep_fixture):
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f'{root_path}/stocks/notification/{notification_id}')
-        assert response.status_code == 200
+async def test_redis_get_from_cache(event_loop):
+    cached_message = await redis.get_cached(collection_key=redis_test_collection)
+    assert cached_message == redis_test_message
 
 
 @pytest.mark.asyncio
-async def test_delete_notification(sleep_fixture):
-    async with httpx.AsyncClient() as client:
-        response = await client.delete(f'{root_path}/stocks/notification/{notification_id}')
-        assert response.status_code == 204
+async def test_redis_get_ttl(event_loop):
+    key_ttl = await redis.get_key_ttl(collection_key=redis_test_collection)
+    assert key_ttl == redis_test_ttl
+
+
+@pytest.mark.asyncio
+async def test_redis_ttl_decrease(sleep_fixture):
+    key_ttl = await redis.get_key_ttl(collection_key=redis_test_collection)
+    assert key_ttl < redis_test_ttl
+
+
+@pytest.mark.asyncio
+async def test_redis_search_by_pattern(sleep_fixture):
+    messages = await redis.search_by_pattern(pattern=redis_test_collection)
+    assert len(messages) > 0
+
+
+@pytest.mark.asyncio
+async def test_redis_cache_expired(event_loop):
+    await asyncio.sleep(redis_test_ttl)
+    cached_message = await redis.get_cached(collection_key=redis_test_collection)
+    assert cached_message is None

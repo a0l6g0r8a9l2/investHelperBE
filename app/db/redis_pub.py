@@ -1,57 +1,90 @@
+import asyncio
 import logging
+from asyncio import CancelledError
+from contextlib import asynccontextmanager
+from typing import Optional, List
 
 import aioredis
 from aioredis import RedisError
 
-from app.core import config_data
+from app.core import settings
 from app.core.logging import setup_logging
-from app.models.models import NotificationMessage
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
-class Redis:
-    def __init__(self, host: str = config_data.get("REDIS_HOST"), port: str = config_data.get("REDIS_PORT")):
-        self.redis_connection_string = f'redis://{host}:{port}/0'
-
-    async def start_publish(self,
-                            message: NotificationMessage,
-                            queue: str = config_data.get("REDIS_NOTIFICATION_QUEUE")):
-        redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
+def error_logging_handler(func):
+    async def wrapped(*args, **kwargs):
         try:
-            redis.rpush(queue, message)
-            logging.debug(f'Message pushed to redis queue: {queue}')
+            logger.debug(f'Call "{func.__name__}" with args: {args}, kwargs: {kwargs}')
+            result = await func(*args, **kwargs)
         except RedisError as redis_err:
             logging.error(f'Redis error: {redis_err.args}')
-        finally:
-            redis.close()
-            await redis.wait_closed()
+        except CancelledError:
+            done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
+            await asyncio.gather(pending)
+        else:
+            logger.debug(f'Successes call "{func.__name__}" return: {result}')
+            return result
+    return wrapped
 
+
+class Redis:
+    def __init__(self, host: str = settings.redis_host, port: str = settings.redis_port, db: int = 0):
+        self.redis_connection_string = f'redis://{host}:{port}/{db}'
+
+    @asynccontextmanager
+    async def get_connection(self):
+        conn = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
+        try:
+            yield conn
+        finally:
+            conn.close()
+            await conn.wait_closed()
+
+    @error_logging_handler
+    async def start_publish(self,
+                            message: str,
+                            queue: str = settings.redis_notification_queue):
+        async with self.get_connection() as conn:
+            await conn.rpush(queue, message)
+            logging.debug(f'Message pushed to redis queue: {queue}')
+
+    @error_logging_handler
     async def save_cache(self,
                          message: str,
-                         collection_key: str = config_data.get("REDIS_BONDS_LIST_CACHE_KEY"),
-                         ttl_per_sec: int = config_data.get("REDIS_BONDS_LIST_CACHE_TTL")):
-        redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
-        try:
-            await redis.setex(key=collection_key, seconds=ttl_per_sec, value=message)
-            logging.debug(f'Message saved to redis key: {collection_key}, ttl: {ttl_per_sec} sec')
+                         collection_key: str,
+                         ttl_per_sec: Optional[int] = None):
+        async with self.get_connection() as conn:
+            await conn.set(key=collection_key, expire=ttl_per_sec, value=message)
             return collection_key
-        except RedisError as redis_err:
-            logging.error(f'Redis error: {redis_err.args}')
-        finally:
-            redis.close()
-            await redis.wait_closed()
 
+    @error_logging_handler
     async def get_cached(self,
-                         collection_key: str = config_data.get("REDIS_BONDS_LIST_CACHE_KEY")):
-        redis = await aioredis.create_redis(self.redis_connection_string, encoding='utf-8')
-        try:
-            message = await redis.get(key=collection_key, encoding='utf-8')
-            logging.debug(f'Message got from redis key: {collection_key}')
-            return message
-        except RedisError as redis_err:
-            logging.error(f'Redis error: {redis_err.args}')
-        finally:
-            redis.close()
-            await redis.wait_closed()
+                         collection_key: str = settings.redis_bonds_list_cache_key):
+        async with self.get_connection() as conn:
+            return await conn.get(key=collection_key, encoding='utf-8')
+
+    @error_logging_handler
+    async def get_key_ttl(self,
+                          collection_key: str) -> Optional[int]:
+        async with self.get_connection() as conn:
+            ttl = await conn.ttl(key=collection_key)
+            if ttl == -2:
+                return None
+            elif ttl == -1:
+                return False
+            return ttl
+
+    @error_logging_handler
+    async def search_by_pattern(self,
+                                pattern: str) -> List[str]:
+        async with self.get_connection() as conn:
+            collection_key = set()
+            async for key in conn.iscan(match=pattern):
+                collection_key.add(key)
+            logging.debug(f'Find keys: {collection_key} by pattern {pattern}')
+            tasks = [asyncio.create_task(self.get_cached(item)) for item in collection_key]
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+            return [d.result() for d in done]
