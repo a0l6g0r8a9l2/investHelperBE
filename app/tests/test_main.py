@@ -20,6 +20,7 @@ async def sleep_fixture():
 redis = Redis()
 redis_test_collection = 'test:collections'
 redis_test_message = 'test message'
+redis_new_test_message = 'new test message'
 redis_test_ttl = 4
 
 
@@ -35,6 +36,13 @@ async def test_redis_save_to_cache(event_loop):
 async def test_redis_get_from_cache(event_loop):
     cached_message = await redis.get_cached(collection_key=redis_test_collection)
     assert cached_message == redis_test_message
+
+
+@pytest.mark.asyncio
+async def test_redis_update_cached(event_loop):
+    cached_collection = await redis.save_cache(collection_key=redis_test_collection,
+                                               message=redis_new_test_message)
+    assert cached_collection == redis_test_collection
 
 
 @pytest.mark.asyncio

@@ -68,7 +68,7 @@ class NotificationStockPriceService:
     @property
     def notification_ttl(self) -> Optional[int]:
         if self.notification:
-            return (self.notification.endNotification - datetime.now()).seconds
+            return (self.notification.endNotification - datetime.utcnow()).seconds
         else:
             return None
 
@@ -161,7 +161,7 @@ class NotificationStockPriceService:
                 await self.storage.save_cache(
                     message=notification.json(),
                     collection_key=self.notification_cache_key,
-                    ttl_per_sec=self.notification_ttl
+                    # ttl_per_sec=self.notification_ttl
                 )
                 logger.debug(f'Price updated: {notification.currentPrice.value}')
             else:
