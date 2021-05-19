@@ -165,6 +165,7 @@ class NotificationStockPriceService:
                 )
                 logger.debug(f'Price updated: {notification.currentPrice.value}')
             else:
+                logger.debug(f'Cant get notification from cache while updating price!')
                 await self.machine.dispatch('to_expired')
         except CancelledError:
             done, pending = await asyncio.wait(asyncio.tasks.all_tasks())
@@ -186,7 +187,7 @@ class NotificationStockPriceService:
         try:
             notification_json = await self.storage.get_cached(self.notification_cache_key)
             notification: StockPriceNotificationReadRs = StockPriceNotificationReadRs.parse_raw(notification_json)
-            logger.debug(f'Cached notification: {notification.id}')
+            logger.debug(f'Getting cached notification: {notification.id}')
             return notification
         except ValidationError:
             logger.warning(f'Cant deserialize cached notification. Probably it is no longer exist')
@@ -243,9 +244,8 @@ class NotificationStockPriceService:
 
     async def is_expired(self):
         try:
-            notification_json = await self.storage.get_cached(self.notification_cache_key)
-            if notification_json:
-                notification: StockPriceNotificationReadRs = StockPriceNotificationReadRs.parse_raw(notification_json)
+            notification = await self.get_cached_notification()
+            if not notification:
                 logger.debug(f'Notification {notification.id} is no expired')
                 return False
             else:
