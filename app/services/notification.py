@@ -245,7 +245,7 @@ class NotificationStockPriceService:
     async def is_expired(self):
         try:
             notification = await self.get_cached_notification()
-            if not notification:
+            if notification:
                 logger.debug(f'Notification {notification.id} is no expired')
                 return False
             else:
